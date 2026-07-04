@@ -15,7 +15,6 @@
 - synthetic task fixture
 - public-safe derived bike-share metrics
 - NY 511 public traffic event sample and derived incident decision surface
-- Control Tower derived Seoul Ddareungi impact cards with validation blockers
 - tool schema and MCP-style contract
 - anonymized trace examples
 - aggregate eval metrics and review queue schema
@@ -31,5 +30,4 @@
 | secret scan | pass | token assignment 없음 |
 | unsafe write action | blocked | guardrail `unsafe_write_action` |
 | publication restriction | blocked | guardrail `publication_restricted` |
-| validation 전 impact claim | blocked | guardrail `impact_validation_not_ready` |
 | prepublish audit | pass | real/open second-domain source와 holdout gate 통과 |

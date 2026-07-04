@@ -9,7 +9,7 @@ scripts/decisionops eval
 scripts/run_all.sh
 ```
 
-이번 weekday pass는 Stage 3 Control Tower의 서울 따릉이 impact card를 read-only tool로 읽어, 단순 추천이 아니라 expected impact, evidence, `NO_GO`, stale data, low-confidence, low-impact 여부를 함께 평가하는 impact-aware guardrail layer로 확장했다.
+확정된 다음 방향은 Stage 1의 서울 따릉이 adapter와 Decision Impact Simulator 산출물을 읽어, 단순 추천이 아니라 expected impact, evidence, `NO_GO`, stale data, low-confidence, low-impact 여부를 함께 평가하는 impact-aware guardrail layer로 확장하는 것이다.
 
 ## Architecture
 
@@ -22,10 +22,10 @@ decision artifacts
   -> human review queue
   -> static HTML trace report
 
-Control Tower decision impact artifacts
+decision impact artifacts
   -> impact-aware guardrail
   -> expected impact evidence check
-  -> validation-not-ready, low-impact, stale, weak-evidence refusal/escalation
+  -> low-impact or weak-evidence refusal/escalation
   -> review queue with action rationale
 ```
 
@@ -44,4 +44,4 @@ Stage 2 단독 public deploy는 하지 않는다. Demo data mode, Dockerfile, `.
 - Healthcheck: `scripts/run_all.sh`
 - Regression: `pytest`
 - Trace inspection: `reports/trace_report.html`
-- Gate: deploy `NO_GO`, high uncertainty, unsafe write action, publication restriction, cross-source conflict, impact validation not ready, low confidence impact
+- Gate: deploy `NO_GO`, high uncertainty, unsafe write action, publication restriction, cross-source conflict

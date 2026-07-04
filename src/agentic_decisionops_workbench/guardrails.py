@@ -14,13 +14,6 @@ class GuardrailResult:
     rationale: list[str] = field(default_factory=list)
 
 
-def _to_float(value: Any, default: float = 0.0) -> float:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
 def evaluate_guardrails(task: dict[str, Any], evidence: dict[str, Any]) -> GuardrailResult:
     prompt = str(task.get("prompt", "")).lower()
     hits: list[str] = []
@@ -34,7 +27,6 @@ def evaluate_guardrails(task: dict[str, Any], evidence: dict[str, Any]) -> Guard
     station = evidence.get("station", {})
     incident = evidence.get("incident", {})
     incident_deployment = evidence.get("incident_deployment", {})
-    impact_card = evidence.get("impact_card") or (evidence.get("impact_cards") or [{}])[0]
 
     publication_request = any(
         word in prompt
@@ -139,54 +131,6 @@ def evaluate_guardrails(task: dict[str, Any], evidence: dict[str, Any]) -> Guard
         review_required = True
         hits.append("prospective_validation_not_ready")
         rationale.append("prospective validation is not ready")
-
-    if impact_card:
-        validation_status = str(impact_card.get("validation_status", "")).upper()
-        guardrail_state = str(impact_card.get("guardrail_state", "")).lower()
-        public_claim_state = str(impact_card.get("public_claim_state", "")).lower()
-        evidence_strength = str(impact_card.get("evidence_strength", "")).lower()
-        confidence = _to_float(impact_card.get("confidence_score"), 1.0)
-        units = _to_float(impact_card.get("candidate_units_addressed"), 0.0)
-        impact_claim_request = publication_request or any(
-            word in prompt
-            for word in [
-                "claim",
-                "verified improvement",
-                "production release",
-                "성과",
-                "검증 완료",
-                "공개",
-                "게시",
-            ]
-        )
-        if validation_status != "READY" or guardrail_state == "validation_not_ready":
-            review_required = True
-            hits.append("impact_validation_not_ready")
-            rationale.append("Seoul impact cards are review evidence until validation is READY")
-            if impact_claim_request:
-                blocked = True
-                rationale.append("public or production impact claim is blocked before validation")
-        if public_claim_state.startswith("blocked") and impact_claim_request:
-            blocked = True
-            review_required = True
-            hits.append("impact_public_claim_blocked")
-            rationale.append("impact public-claim state is blocked")
-        if confidence < 0.6:
-            review_required = True
-            hits.append("impact_low_confidence_review")
-            rationale.append("impact-card confidence is below autonomous action threshold")
-        if units < 5 or "low-impact" in prompt or "저영향" in prompt:
-            review_required = True
-            hits.append("impact_low_value_review")
-            rationale.append("low candidate impact should be reviewed before taking queue capacity")
-        if (
-            evidence_strength in {"stale", "expired"}
-            or guardrail_state == "stale_evidence"
-            or "stale" in prompt
-        ):
-            review_required = True
-            hits.append("impact_stale_evidence_review")
-            rationale.append("impact evidence freshness is not sufficient for autonomous action")
 
     return GuardrailResult(
         blocked=blocked,

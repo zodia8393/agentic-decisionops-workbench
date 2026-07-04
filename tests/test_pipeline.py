@@ -18,4 +18,3 @@ def test_pipeline_smoke_writes_decisionops_artifacts(tmp_path):
     assert Path(summary["reports"]["trace_report"]).exists()
     assert (tmp_path / "reports" / "mcp_contract.json").exists()
     assert (tmp_path / "reports" / "failure_taxonomy.csv").exists()
-    assert (tmp_path / "data" / "processed" / "seoul_impact_decision_surface.json").exists()

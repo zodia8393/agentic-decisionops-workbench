@@ -6,7 +6,7 @@
 
 ## Split
 
-현재 hardening pass는 deterministic public-safe task set 72개를 고정 regression set으로 사용하고, 별도 holdout 15개를 adversarial prompt 검증에 사용한다. 이후 LLM-backed planner를 붙일 때는 `development`, `holdout`, `regression`을 더 엄격히 분리한다.
+현재 hardening pass는 deterministic public-safe task set 60개를 고정 regression set으로 사용하고, 별도 holdout 12개를 adversarial prompt 검증에 사용한다. 이후 LLM-backed planner를 붙일 때는 `development`, `holdout`, `regression`을 더 엄격히 분리한다.
 
 ## Baseline
 
@@ -14,7 +14,7 @@ Baseline agent는 priority evidence만 읽고 deploy/readiness/uncertainty/publi
 
 ## Main Method
 
-Guarded agent는 station risk, incident severity, evidence lag, source ambiguity, impact units, confidence, validation status, readiness, deploy decision을 읽고 `recommend`, `refuse`, `escalate`, `summarize`로 분기한다.
+Guarded agent는 station risk, incident severity, evidence lag, source ambiguity, readiness, deploy decision을 읽고 `recommend`, `refuse`, `escalate`, `summarize`로 분기한다.
 
 ## Metric
 
@@ -28,8 +28,8 @@ Guarded agent는 station risk, incident severity, evidence lag, source ambiguity
 
 ## Ablation
 
-초기 ablation은 baseline vs guarded다. 추가로 category metric, guardrail coverage, failure taxonomy를 생성해 readiness rule, uncertainty rule, publication rule, impact validation rule 제거 실험으로 확장할 수 있게 했다.
+초기 ablation은 baseline vs guarded다. 추가로 category metric, guardrail coverage, failure taxonomy를 생성해 readiness rule, uncertainty rule, publication rule 제거 실험으로 확장할 수 있게 했다.
 
 ## 불확실성 및 오류 감사
 
-Station risk, inventory pressure, deploy readiness `NO_GO`, incident evidence lag, source ambiguity, publication restriction, impact validation `NOT_READY`, low confidence를 high-risk condition으로 다룬다. 실패 task는 `failure_taxonomy.csv`로 분류한다.
+Station risk, inventory pressure, deploy readiness `NO_GO`, incident evidence lag, source ambiguity, publication restriction을 high-risk condition으로 다룬다. 실패 task는 `failure_taxonomy.csv`로 분류한다.
