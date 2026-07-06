@@ -27,7 +27,12 @@ def _priority(decision: dict[str, Any]) -> tuple[str, int]:
     hits = set(decision.get("guardrail_hits", []))
     if decision.get("refused") or {"deployment_no_go", "publication_restricted"} & hits:
         return "P0", 4
-    if {"high_uncertainty_review", "cross_source_conflict_review"} & hits:
+    if {
+        "high_uncertainty_review",
+        "cross_source_conflict_review",
+        "impact_validation_not_ready",
+        "impact_low_confidence_review",
+    } & hits:
         return "P1", 8
     return "P2", 24
 

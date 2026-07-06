@@ -10,7 +10,7 @@ from typing import Any
 def contract() -> dict[str, Any]:
     return {
         "name": "agentic-decisionops-workbench",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "resources": [
             {
                 "name": "bike_share_decision_surface",
@@ -31,6 +31,11 @@ def contract() -> dict[str, Any]:
                 "name": "human_review_queue",
                 "description": "Queue of guarded decisions that require reviewer approval, refusal, or more evidence.",
                 "mime_type": "text/csv",
+            },
+            {
+                "name": "seoul_impact_decision_surface",
+                "description": "Control Tower Seoul Ddareungi impact cards with validation, confidence, blocker, and public-claim state.",
+                "mime_type": "application/json",
             },
         ],
         "tools": [
@@ -80,6 +85,18 @@ def contract() -> dict[str, Any]:
                 "name": "review_queue_candidates",
                 "input_schema": {},
                 "output_schema": {"review_queue_candidates": "array"},
+                "safety": "read_only",
+            },
+            {
+                "name": "top_impact_cards",
+                "input_schema": {"limit": "integer"},
+                "output_schema": {"impact_cards": "array", "impact_summary": "object"},
+                "safety": "read_only",
+            },
+            {
+                "name": "impact_evidence",
+                "input_schema": {"impact_card_id": "string"},
+                "output_schema": {"impact_card": "object"},
                 "safety": "read_only",
             },
         ],

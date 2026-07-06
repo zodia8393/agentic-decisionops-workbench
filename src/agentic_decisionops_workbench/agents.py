@@ -76,6 +76,26 @@ def _is_cross_domain_summary(prompt: str) -> bool:
     )
 
 
+def _is_impact_prompt(prompt: str) -> bool:
+    return any(
+        word in prompt
+        for word in [
+            "impact",
+            "impact card",
+            "ddareungi",
+            "seoul",
+            "따릉이",
+            "완화량",
+            "성과",
+            "후보 조치",
+            "대여소",
+            "expected delta",
+            "candidate units",
+            "validation_not_ready",
+        ]
+    )
+
+
 def _needs_incident_readiness(prompt: str) -> bool:
     return any(
         word in prompt
@@ -181,6 +201,26 @@ class GuardedDecisionAgent:
         if _is_cross_domain_summary(prompt):
             tool_results.append(self.tools.operator_summary())
             tool_results.append(self.tools.readiness_status())
+        if _is_impact_prompt(prompt) and not _is_cross_domain_summary(prompt):
+            top_impact = self.tools.top_impact_cards(limit=5)
+            tool_results.append(top_impact)
+            cards = top_impact.payload["impact_cards"]
+            if cards:
+                if any(word in prompt for word in ["low-impact", "저영향", "낮은"]):
+                    selected = min(
+                        cards,
+                        key=lambda row: float(row.get("candidate_units_addressed", 0.0) or 0.0),
+                    )
+                else:
+                    selected = next(
+                        (
+                            row
+                            for row in cards
+                            if str(row.get("guardrail_state", "")) != "ready_for_review"
+                        ),
+                        cards[0],
+                    )
+                tool_results.append(self.tools.impact_evidence(selected.get("impact_card_id")))
         if _is_incident_prompt(prompt) and not _is_cross_domain_summary(prompt):
             if _needs_incident_readiness(prompt):
                 tool_results.append(self.tools.incident_readiness())
@@ -219,6 +259,7 @@ class GuardedDecisionAgent:
         station_summary_only = "snapshot" in prompt and ("요약" in prompt or "정리" in prompt)
         if (
             not _is_cross_domain_summary(prompt)
+            and not _is_impact_prompt(prompt)
             and not station_summary_only
             and any(
                 word in prompt
@@ -304,6 +345,7 @@ class GuardedDecisionAgent:
         deployment = evidence.get("deployment", {})
         station = evidence.get("station") or (evidence.get("stations") or [{}])[0]
         incident = evidence.get("incident") or (evidence.get("incidents") or [{}])[0]
+        impact_card = evidence.get("impact_card") or (evidence.get("impact_cards") or [{}])[0]
         incident_deployment = evidence.get("incident_deployment", {})
         queue_candidates = evidence.get("review_queue_candidates", [])
         citation = (
@@ -311,6 +353,10 @@ class GuardedDecisionAgent:
             f"risk={station.get('risk_score', 'n/a')}, "
             f"incident={incident.get('incident_id', 'n/a')}, "
             f"severity={incident.get('severity_score', 'n/a')}, "
+            f"impact={impact_card.get('impact_card_id', 'n/a')}, "
+            f"units={impact_card.get('candidate_units_addressed', 'n/a')}, "
+            f"confidence={impact_card.get('confidence_score', 'n/a')}, "
+            f"impact_validation={impact_card.get('validation_status', 'n/a')}, "
             f"snapshot={readiness.get('snapshot_count', 'n/a')}/"
             f"{readiness.get('target_snapshots', 'n/a')}, "
             f"deploy={deployment.get('decision', incident_deployment.get('decision', 'n/a'))}."
@@ -323,6 +369,8 @@ class GuardedDecisionAgent:
             if queue_candidates:
                 return f"검토 큐 후보 {len(queue_candidates)}건을 생성했습니다. {citation}"
             return f"현재 readiness는 {readiness.get('decision', 'n/a')}입니다. {citation}"
+        if impact_card:
+            return f"{impact_card.get('impact_card_id', 'n/a')} impact card를 검토합니다. {citation}"
         if incident:
             return f"{incident.get('incident_id', 'n/a')} 우선 대응을 검토합니다. {citation}"
         return f"{station.get('station_short_name', 'n/a')} 우선 대응을 권고합니다. {citation}"

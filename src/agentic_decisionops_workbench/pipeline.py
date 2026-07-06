@@ -16,13 +16,21 @@ DEFAULT_OUTPUT_ROOT = Path(
 DEFAULT_BIKE_SHARE_ROOT = Path(
     "/DATA/HJ/prj/data-scientist-career/projects/bike-share-demand-resilience"
 )
+DEFAULT_CONTROL_TOWER_ROOT = Path(
+    "/DATA/HJ/prj/data-scientist-career/projects/decisionops-control-tower"
+)
 
 
 def run_all(
     output_root: Path = DEFAULT_OUTPUT_ROOT,
     bike_share_root: Path = DEFAULT_BIKE_SHARE_ROOT,
+    control_tower_root: Path = DEFAULT_CONTROL_TOWER_ROOT,
 ) -> dict:
-    summary = run_evaluation(output_root=output_root, bike_share_root=bike_share_root)
+    summary = run_evaluation(
+        output_root=output_root,
+        bike_share_root=bike_share_root,
+        control_tower_root=control_tower_root,
+    )
     contract_json, contract_md = write_contract(output_root)
     report_paths = write_reports(output_root)
     quality_path = write_quality_scores(output_root)
@@ -42,12 +50,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("command", nargs="?", default="eval", choices=["eval", "run-all"])
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--bike-share-root", default=str(DEFAULT_BIKE_SHARE_ROOT))
+    parser.add_argument("--control-tower-root", default=str(DEFAULT_CONTROL_TOWER_ROOT))
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    summary = run_all(Path(args.output_root), Path(args.bike_share_root))
+    summary = run_all(
+        Path(args.output_root),
+        Path(args.bike_share_root),
+        Path(args.control_tower_root),
+    )
     print(
         "decisionops hardening complete: "
         f"guarded_success_lift={summary['guarded_success_lift']:.3f}, "
