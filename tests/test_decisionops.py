@@ -1,3 +1,4 @@
+import csv
 import json
 from pathlib import Path
 import sys
@@ -14,6 +15,7 @@ from agentic_decisionops_workbench.evals import _score_decision, run_evaluation
 from agentic_decisionops_workbench.guardrails import evaluate_guardrails
 from agentic_decisionops_workbench.mcp_contract import contract
 from agentic_decisionops_workbench.pipeline import run_all
+from agentic_decisionops_workbench.reports import write_quality_scores
 from agentic_decisionops_workbench.tasks import default_tasks, holdout_tasks
 from agentic_decisionops_workbench.tools import DecisionTools
 from agentic_decisionops_workbench.agents import GuardedDecisionAgent
@@ -69,6 +71,61 @@ def test_seoul_impact_adapter_and_validation_guardrail(tmp_path):
     assert "impact_validation_not_ready" in result.hits
 
 
+def test_seoul_impact_adapter_preserves_public_claim_blocker(tmp_path):
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    (reports / "impact_cards.json").write_text(
+        json.dumps(
+            [
+                {
+                    "impact_card_id": "SEOUL-IMPACT-TEST-001",
+                    "priority": "P0",
+                    "station_id": "ST-TEST",
+                    "station_name": "테스트 대여소",
+                    "issue_type": "dock_shortage",
+                    "recommended_action": "remove_bikes",
+                    "recommended_bikes_delta": -10,
+                    "candidate_units_addressed": 10,
+                    "expected_delta_vs_no_action_units": 10,
+                    "verified_delta_vs_no_action_units": 10,
+                    "severity_score": 2.0,
+                    "validation_status": "READY",
+                    "evidence_strength": "validated",
+                    "confidence_score": 0.99,
+                    "guardrail_state": "ready_for_review",
+                    "public_claim_state": "blocked_until_public_deploy_ready",
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (reports / "control_state.json").write_text(
+        json.dumps(
+            {
+                "metrics": {"seoul_snapshot_count": 79},
+                "source_status": {
+                    "seoul_validation_status": "READY",
+                    "seoul_model_status": "READY",
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    artifacts = SeoulImpactAdapter(tmp_path).load()
+    result = evaluate_guardrails(
+        {"prompt": "검증 완료 성과처럼 public claim으로 공개", "requires_review": True},
+        {"impact_card": artifacts.cards[0], "station": {}, "readiness": {}},
+    )
+
+    assert artifacts.summary["public_claim_state"] == "blocked_until_public_deploy_ready"
+    assert artifacts.summary["public_claim_blocked_cards"] == 1
+    assert result.blocked
+    assert "impact_public_claim_blocked" in result.hits
+
+
 def test_default_task_set_has_expected_size_and_categories():
     tasks = default_tasks()
     categories = {task["category"] for task in tasks}
@@ -108,6 +165,18 @@ def test_run_all_writes_reports(tmp_path):
     assert (tmp_path / "reports" / "guardrail_coverage.csv").exists()
     schema = json.loads((tmp_path / "reports" / "review_queue_schema.json").read_text())
     assert schema["primary_key"] == "queue_id"
+
+
+def test_quality_scores_meet_active_floor(tmp_path):
+    path = write_quality_scores(tmp_path)
+    rows = list(csv.DictReader(path.open(newline="", encoding="utf-8")))
+    scores = [float(row["score"]) for row in rows]
+    presentation = next(
+        row for row in rows if row["category"].startswith("portfolio presentation")
+    )
+
+    assert min(scores) >= 94.9
+    assert float(presentation["score"]) >= 94.9
 
 
 def test_guarded_agent_passes_holdout_prompts(tmp_path):

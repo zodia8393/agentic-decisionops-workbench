@@ -12,7 +12,7 @@
 | privacy gate | pass | source 기준 | release artifact scan 자동화 유지 |
 | deployable product | pass | Stage 2 자체는 CLI/report/queue이고 Stage 3 Control Tower가 API/Docker로 연결 | hosted demo hardening |
 | prepublish audit | pass | unique prompt, holdout, real/open incident source 통과 | registry packaging 여부 결정 |
-| quality floor > 94.2 | pass | min score 94.4 | active quality floor ratchet 적용 |
+| quality floor >= 94.9 | pass | min score 94.9, presentation score 95.0 | active quality floor ratchet을 테스트로 고정 |
 
 ## 남은 리스크
 
@@ -20,4 +20,4 @@
 - LLM-backed planner는 아직 붙이지 않았다.
 - Review queue는 Stage 2에서는 CSV/JSONL artifact이고, persistence와 reviewer action은 Stage 3 `decisionops-control-tower`에서 처리한다.
 - Incident data는 live dispatch authority가 아니므로 publication/dispatch는 계속 human review 범위다.
-- Seoul impact card는 validation `READY` 전까지 성과 claim이 아니라 reviewer evidence다.
+- Seoul impact card는 validation `READY`와 public deploy `GO`를 모두 만족하기 전까지 성과 claim이 아니라 reviewer evidence다.

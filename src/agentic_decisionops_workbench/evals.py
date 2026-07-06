@@ -150,6 +150,8 @@ def _prepublish_audit(
     incident_source_status: str,
     impact_task_success: float,
     impact_task_count: int,
+    impact_public_claim_state: str,
+    impact_public_claim_blocked_cards: int,
     output_root: Path,
 ) -> dict[str, Any]:
     reports = output_root / "reports"
@@ -182,6 +184,16 @@ def _prepublish_audit(
             "detail": (
                 f"impact guarded success={impact_task_success:.3f}, "
                 f"impact tasks={impact_task_count}; impact-aware guardrail coverage required"
+            ),
+        },
+        {
+            "check": "impact_public_claim_boundary",
+            "passed": impact_public_claim_state.startswith("blocked")
+            or impact_public_claim_state == "ready_for_claim",
+            "detail": (
+                f"impact public_claim_state={impact_public_claim_state}, "
+                f"blocked_cards={impact_public_claim_blocked_cards}; "
+                "portfolio publication can show evidence, but verified public claims follow this state"
             ),
         },
     ]
@@ -285,6 +297,12 @@ def run_evaluation(
         incident_source_status=incident_artifacts.source_status,
         impact_task_success=impact_task_success,
         impact_task_count=impact_task_count,
+        impact_public_claim_state=str(
+            impact_artifacts.summary.get("public_claim_state", "unknown")
+        ),
+        impact_public_claim_blocked_cards=int(
+            impact_artifacts.summary.get("public_claim_blocked_cards", 0) or 0
+        ),
         output_root=output_root,
     )
     improvement = metrics[1]["task_success_rate"] - metrics[0]["task_success_rate"]
@@ -305,6 +323,9 @@ def run_evaluation(
             ),
             "validation_status": impact_artifacts.summary.get("seoul_validation_status"),
             "public_claim_state": impact_artifacts.summary.get("public_claim_state"),
+            "public_claim_blocked_cards": impact_artifacts.summary.get(
+                "public_claim_blocked_cards", 0
+            ),
             "guarded_task_success": impact_task_success,
             "guarded_task_count": impact_task_count,
         },

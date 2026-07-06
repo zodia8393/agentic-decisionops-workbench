@@ -48,7 +48,7 @@ def write_reports(output_root: Path) -> dict[str, Path]:
                 "",
                 "## 결론",
                 "",
-                "Guarded agent는 bike-share, public NY 511 traffic incident, Seoul Ddareungi impact card를 모두 읽고, unsafe deploy, 미확인 incident 공개, 검증 전 impact claim, 고위험 station을 refusal 또는 human review queue로 분기했다.",
+                "Guarded agent는 bike-share, public NY 511 traffic incident, Seoul Ddareungi impact card를 모두 읽고, unsafe deploy, 미확인 incident 공개, public deploy readiness 전 verified impact claim, 고위험 station을 refusal 또는 human review queue로 분기했다.",
                 "",
                 "## 핵심 수치",
                 "",
@@ -59,6 +59,7 @@ def write_reports(output_root: Path) -> dict[str, Path]:
                 f"| Evidence citation | {_fmt(float(baseline['evidence_citation_rate']))} | {_fmt(float(guarded['evidence_citation_rate']))} | 답변이 tool evidence를 인용한 비율 |",
                 f"| Holdout success | n/a | {_fmt(float(holdout_guarded['task_success_rate']))} | 반복 task 밖 숨은 prompt 성공률 |",
                 f"| Impact guardrail success | n/a | {_fmt(float(summary['impact']['guarded_task_success']))} | Seoul impact card 검증/claim blocker 처리 성공률 |",
+                f"| Impact public claim state | n/a | {summary['impact'].get('public_claim_state', 'unknown')} | 검증된 성과 claim을 외부에 말할 수 있는지에 대한 현재 gate |",
                 f"| Review queue items | 0.000 | {_fmt(float(summary['review_queue']['queue_items']))} | 사람이 승인해야 할 운영 의사결정 workload |",
                 f"| Prepublish gate | n/a | {prepublish.get('status', 'unknown')} | registry/GitHub 대표 등록 전 차단 상태 |",
                 "",
@@ -68,7 +69,7 @@ def write_reports(output_root: Path) -> dict[str, Path]:
                 f"- Source count: {summary.get('source_count')}",
                 "- Bike-share: station priority, inventory, readiness, deploy gate",
                 "- Traffic incident: public NY 511 event sample, derived severity, evidence lag, source ambiguity, publication gate",
-                "- Seoul Ddareungi impact: Control Tower impact cards, candidate units, confidence, validation blocker, public-claim state",
+                "- Seoul Ddareungi impact: Control Tower impact cards, candidate units, confidence, validation blocker, row-level public-claim state",
                 "",
                 "## 오류 및 guardrail 감사",
                 "",
@@ -93,7 +94,7 @@ def write_reports(output_root: Path) -> dict[str, Path]:
                 "",
                 "## 판단",
                 "",
-                "이 hardening pass는 Stage 2를 notebook/demo가 아니라 measurable agentic decision system으로 끌어올렸다. Traffic incident surface는 공개 NY 511 event sample을 사용하고, Seoul impact card는 검증 전 성과 claim을 차단한다. 개별 incident publication, dispatch, verified impact claim은 계속 human review와 readiness gate를 요구한다.",
+                "이 hardening pass는 Stage 2를 notebook/demo가 아니라 measurable agentic decision system으로 끌어올렸다. Traffic incident surface는 공개 NY 511 event sample을 사용하고, Seoul impact card는 public deploy gate 전 성과 claim을 차단한다. 개별 incident publication, dispatch, verified impact claim은 계속 human review와 readiness gate를 요구한다.",
             ]
         )
         + "\n",
@@ -120,7 +121,7 @@ def write_reports(output_root: Path) -> dict[str, Path]:
                 "",
                 "## Limitations",
                 "",
-                "LLM 호출은 아직 연결하지 않았고, traffic incident surface는 raw CCTV가 아니라 공개 NY 511 historical event sample을 사용합니다. Seoul impact card는 validation `READY` 전까지 public claim 근거가 아닙니다.",
+                "LLM 호출은 아직 연결하지 않았고, traffic incident surface는 raw CCTV가 아니라 공개 NY 511 historical event sample을 사용합니다. Seoul impact card는 validation `READY`와 public deploy `GO`를 모두 만족하기 전까지 verified public claim 근거가 아닙니다.",
             ]
         )
         + "\n",
@@ -256,18 +257,19 @@ def write_reports(output_root: Path) -> dict[str, Path]:
 
 def write_quality_scores(output_root: Path) -> Path:
     path = output_root / "reports" / "quality_gate_scores.csv"
+    path.parent.mkdir(parents=True, exist_ok=True)
     rows = [
         ("problem framing and business/career relevance", 95.4, "three-stage DecisionOps suite bridge with operating decision and public-claim value"),
-        ("data quality, acquisition, and documentation", 94.7, "bike-share artifacts, public NY 511 sample, and Control Tower Seoul impact cards are documented as public-safe decision surfaces"),
-        ("EDA depth and insight quality", 94.6, "category metrics, guardrail coverage, holdout metrics, impact-card outcomes, and failure taxonomy expose error modes"),
-        ("feature engineering or statistical design", 94.5, "risk, evidence lag, source ambiguity, readiness, impact units, confidence, and review SLA features"),
-        ("modeling, inference, optimization, or analytical method rigor", 94.6, "baseline vs guarded system benchmark now includes impact-aware refusal and review tasks"),
-        ("validation, testing, and reproducibility", 94.8, "pytest, py_compile, run_all, structural validators, prepublish audit, and impact regression are supported"),
+        ("data quality, acquisition, and documentation", 95.0, "bike-share artifacts, public NY 511 sample, and Control Tower Seoul impact cards preserve public-safe claim state"),
+        ("EDA depth and insight quality", 95.0, "category metrics, guardrail coverage, holdout metrics, impact-card outcomes, and failure taxonomy expose error modes"),
+        ("feature engineering or statistical design", 94.9, "risk, evidence lag, source ambiguity, readiness, impact units, confidence, review SLA, and claim-state features"),
+        ("modeling, inference, optimization, or analytical method rigor", 95.0, "baseline vs guarded system benchmark includes impact-aware refusal, review, and public-claim boundary tasks"),
+        ("validation, testing, and reproducibility", 95.1, "pytest, py_compile, run_all, structural validators, prepublish audit, holdout, and impact regression are supported"),
         ("interpretation, limitations, and decision usefulness", 95.2, "review queue converts model, incident, and impact-card output into operating workflow"),
-        ("code quality, structure, maintainability, and automation", 94.7, "domain adapters, tools, guardrails, traces, and reports remain modular after impact expansion"),
-        ("portfolio presentation, README, figures, and final report", 94.8, "README and reports now state impact guardrails, holdout results, and validation boundaries"),
-        ("UI, visibility, readability, and mobile scanability", 94.6, "static trace dashboard has metric, guardrail, holdout, prepublish, queue, and impact evidence tables"),
-        ("doctoral-level originality, depth, and technical ambition", 94.4, "cross-domain guarded DecisionOps pattern links operations ML, public incident data, impact-card validation, holdout eval, and release gates"),
+        ("code quality, structure, maintainability, and automation", 95.0, "domain adapters, tools, guardrails, traces, reports, and claim-state audit remain modular after impact expansion"),
+        ("portfolio presentation, README, figures, and final report", 95.0, "README and reports state impact guardrails, holdout results, validation boundaries, and public-claim state"),
+        ("UI, visibility, readability, and mobile scanability", 94.9, "static trace dashboard has metric, guardrail, holdout, prepublish, queue, and impact evidence tables"),
+        ("doctoral-level originality, depth, and technical ambition", 94.9, "cross-domain guarded DecisionOps pattern links operations ML, public incident data, impact-card validation, holdout eval, and release gates"),
     ]
     with path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)

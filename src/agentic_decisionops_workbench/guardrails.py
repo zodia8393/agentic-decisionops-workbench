@@ -166,11 +166,12 @@ def evaluate_guardrails(task: dict[str, Any], evidence: dict[str, Any]) -> Guard
             if impact_claim_request:
                 blocked = True
                 rationale.append("public or production impact claim is blocked before validation")
-        if public_claim_state.startswith("blocked") and impact_claim_request:
-            blocked = True
+        if public_claim_state.startswith("blocked"):
             review_required = True
             hits.append("impact_public_claim_blocked")
             rationale.append("impact public-claim state is blocked")
+            if impact_claim_request:
+                blocked = True
         if confidence < 0.6:
             review_required = True
             hits.append("impact_low_confidence_review")

@@ -132,6 +132,22 @@ class SeoulImpactAdapter:
         control_state = _read_json(reports / "control_state.json", {})
         metrics = dict(control_state.get("metrics", {}))
         source_status = dict(control_state.get("source_status", {}))
+        public_claim_states = [
+            str(row.get("public_claim_state", "")).lower() for row in cards
+        ]
+        blocked_claim_states = [
+            state for state in public_claim_states if state.startswith("blocked")
+        ]
+        if blocked_claim_states:
+            public_claim_state = (
+                blocked_claim_states[0]
+                if len(set(blocked_claim_states)) == 1
+                else "blocked_mixed_public_claim_states"
+            )
+        elif all(row.get("guardrail_state") == "ready_for_review" for row in cards):
+            public_claim_state = "ready_for_claim"
+        else:
+            public_claim_state = "blocked_until_validation_ready"
         summary = {
             "impact_card_rows": len(cards),
             "impact_candidate_units_addressed": sum(
@@ -142,11 +158,8 @@ class SeoulImpactAdapter:
             ),
             "seoul_model_status": source_status.get("seoul_model_status", "UNKNOWN"),
             "seoul_snapshot_count": metrics.get("seoul_snapshot_count", 0),
-            "public_claim_state": (
-                "ready_for_claim"
-                if all(row.get("guardrail_state") == "ready_for_review" for row in cards)
-                else "blocked_until_validation_ready"
-            ),
+            "public_claim_state": public_claim_state,
+            "public_claim_blocked_cards": len(blocked_claim_states),
         }
         return SeoulImpactArtifacts(
             cards=cards,
