@@ -5,4 +5,7 @@ matplotlib
 seaborn
 scipy
 pyarrow
+fastapi
+uvicorn[standard]
 pytest
+httpx

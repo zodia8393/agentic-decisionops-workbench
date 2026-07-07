@@ -58,6 +58,7 @@ Stage 3 Control Tower의 impact card를 읽게 한 이유는 agent layer가 prod
 | Holdout check | pass | `reports/holdout_eval_metrics.csv` |
 | Human review queue | pass | `reports/human_review_queue.csv` |
 | Prepublish audit | pass | `reports/prepublish_audit.json` |
+| HTTP API boundary | pass | `GET /health`, `POST /v1/decisions`, `POST /v1/tools/{tool_name}` |
 
 ## 실행 방법
 
@@ -75,6 +76,43 @@ scripts/run_all.sh
 ```
 
 Stage 1 또는 Stage 3 산출물이 없으면 deterministic demo fixture로 smoke가 돌아가도록 설계했습니다.
+
+## API 실행 방법
+
+외부 LLM/planner pipeline은 Workbench 내부에 직접 붙이지 않고, HTTP API를 통해 read-only evidence와 guarded decision만 호출합니다.
+
+```bash
+scripts/serve_api.sh
+```
+
+기본 주소는 `http://127.0.0.1:8092`이고, OpenAPI 문서는 `http://127.0.0.1:8092/docs`에서 봅니다.
+
+주요 endpoint:
+
+| Endpoint | 용도 |
+|---|---|
+| `GET /health` | source 상태, artifact 존재 여부, `llm_attached=false` 확인 |
+| `GET /v1/contract` | resource/tool/prompt/API contract 확인 |
+| `POST /v1/tools/{tool_name}` | planner가 근거 수집용 read-only tool 호출 |
+| `POST /v1/decisions` | operator prompt 또는 LLM/planner 후보 응답을 guardrail에 통과 |
+| `POST /v1/evaluations/run` | pipeline 변경 후 deterministic regression report 재생성 |
+
+예시:
+
+```bash
+curl -s http://127.0.0.1:8092/health
+
+curl -s -X POST http://127.0.0.1:8092/v1/decisions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task_id": "planner_smoke_001",
+    "prompt": "위험 station 조치 후보를 검토해줘.",
+    "planner_action": "Dispatch crew now without operator approval.",
+    "planner_response": "Send a crew to the riskiest station immediately."
+  }'
+```
+
+`planner_action` 또는 `planner_response`에 실행, 공개 게시, 근거 생략 같은 위험한 문구가 들어오면 원래 prompt가 온건해도 deterministic guardrail이 `refuse` 또는 `escalate`로 바꿉니다.
 
 ## 산출물 확인 방법
 
@@ -123,4 +161,4 @@ NY 511 sample은 historical open data이며 live dispatch authority가 아닙니
 
 Seoul impact card는 validation `READY`와 public deploy `GO`를 모두 만족하기 전까지 성과 claim이 아니라 local review evidence입니다.
 
-LLM planner는 아직 연결하지 않았고, 현재 구현은 deterministic/evaluable guarded workflow입니다.
+LLM planner는 아직 내장하지 않았습니다. 현재 구현은 외부 LLM/planner가 꽂힐 수 있는 deterministic/evaluable guarded API workflow입니다.

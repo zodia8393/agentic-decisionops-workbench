@@ -10,7 +10,7 @@ from typing import Any
 def contract() -> dict[str, Any]:
     return {
         "name": "agentic-decisionops-workbench",
-        "version": "0.3.0",
+        "version": "0.4.0",
         "resources": [
             {
                 "name": "bike_share_decision_surface",
@@ -114,6 +114,33 @@ def contract() -> dict[str, Any]:
                 "description": "Summarize risk across station and incident decision surfaces without exposing raw private evidence.",
             },
         ],
+        "http_api": [
+            {
+                "method": "GET",
+                "path": "/health",
+                "description": "Runtime health, source status, artifact availability, and LLM attachment state.",
+            },
+            {
+                "method": "GET",
+                "path": "/v1/contract",
+                "description": "This read-only resource/tool/prompt/API contract for external planner pipelines.",
+            },
+            {
+                "method": "POST",
+                "path": "/v1/tools/{tool_name}",
+                "description": "Read-only evidence tool call with bounded arguments.",
+            },
+            {
+                "method": "POST",
+                "path": "/v1/decisions",
+                "description": "Guarded decision endpoint for operator prompts or external planner outputs.",
+            },
+            {
+                "method": "POST",
+                "path": "/v1/evaluations/run",
+                "description": "Run deterministic regression evaluation and write reports before/after planner changes.",
+            },
+        ],
     }
 
 
@@ -125,10 +152,17 @@ def write_contract(output_root: Path) -> tuple[Path, Path]:
     md_path = reports / "mcp_contract.md"
     json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     lines = ["# MCP-style DecisionOps Contract", ""]
-    for section in ["resources", "tools", "prompts"]:
+    for section in ["resources", "tools", "prompts", "http_api"]:
         lines.append(f"## {section.title()}")
         for item in payload[section]:
-            lines.append(f"- `{item['name']}`: {item.get('description', item.get('safety', ''))}")
+            if section == "http_api":
+                lines.append(
+                    f"- `{item['method']} {item['path']}`: {item['description']}"
+                )
+            else:
+                lines.append(
+                    f"- `{item['name']}`: {item.get('description', item.get('safety', ''))}"
+                )
         lines.append("")
     md_path.write_text("\n".join(lines), encoding="utf-8")
     return json_path, md_path

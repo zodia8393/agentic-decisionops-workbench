@@ -15,10 +15,12 @@ dependencies = [
   "seaborn",
   "scipy",
   "pyarrow",
+  "fastapi",
+  "uvicorn[standard]",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "httpx"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
