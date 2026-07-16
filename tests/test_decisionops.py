@@ -21,6 +21,76 @@ from agentic_decisionops_workbench.tools import DecisionTools
 from agentic_decisionops_workbench.agents import GuardedDecisionAgent
 
 
+def write_ready_impact_artifacts(root: Path) -> None:
+    reports = root / "reports"
+    reports.mkdir(parents=True)
+    (reports / "impact_cards.json").write_text(
+        json.dumps(
+            [
+                {
+                    "impact_card_id": "SEOUL-IMPACT-READY-001",
+                    "priority": "P0",
+                    "station_id": "ST-READY",
+                    "station_name": "준비 완료 대여소",
+                    "issue_type": "dock_shortage",
+                    "recommended_action": "remove_bikes",
+                    "recommended_bikes_delta": -10,
+                    "candidate_units_addressed": 10,
+                    "expected_delta_vs_no_action_units": 10,
+                    "verified_delta_vs_no_action_units": 10,
+                    "severity_score": 2.0,
+                    "validation_status": "READY",
+                    "evidence_strength": "validated",
+                    "confidence_score": 0.99,
+                    "guardrail_state": "ready_for_review",
+                    "public_claim_state": "allowed",
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (reports / "control_state.json").write_text(
+        json.dumps(
+            {
+                "metrics": {"seoul_snapshot_count": 100},
+                "source_status": {
+                    "seoul_validation_status": "READY",
+                    "seoul_model_status": "READY",
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+
+def write_go_bike_artifacts(root: Path) -> None:
+    reports = root / "station_level" / "reports"
+    reports.mkdir(parents=True)
+    (reports / "station_rebalancing_priority.csv").write_text(
+        "station_short_name,station_name,risk_score,inventory_pressure\n"
+        "READY01,준비 완료 대여소,6.0,0.95\n",
+        encoding="utf-8",
+    )
+    (reports / "station_snapshot_readiness.json").write_text(
+        json.dumps(
+            {
+                "ready_for_prospective_validation": True,
+                "snapshot_count": 340,
+                "target_snapshots": 336,
+                "coverage_ratio": 1.0,
+                "reason": "ready",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (reports / "station_public_deploy_readiness.json").write_text(
+        json.dumps({"decision": "GO", "blockers": []}),
+        encoding="utf-8",
+    )
+
+
 def test_bike_share_adapter_has_public_safe_fallback(tmp_path):
     artifacts = BikeShareArtifactAdapter(tmp_path / "missing").load()
     assert artifacts.source_status == "fallback"
@@ -143,7 +213,11 @@ def test_default_task_set_has_expected_size_and_categories():
 
 
 def test_guarded_agent_improves_over_baseline(tmp_path):
-    summary = run_evaluation(output_root=tmp_path, bike_share_root=tmp_path / "missing")
+    summary = run_evaluation(
+        output_root=tmp_path,
+        bike_share_root=tmp_path / "missing-bike",
+        control_tower_root=tmp_path / "missing-tower",
+    )
     metrics_path = tmp_path / "reports" / "eval_metrics.csv"
     assert metrics_path.exists()
     assert summary["guarded_success_lift"] > 0
@@ -156,8 +230,44 @@ def test_guarded_agent_improves_over_baseline(tmp_path):
     assert (tmp_path / "reports" / "prepublish_audit.json").exists()
 
 
+def test_evaluation_passes_ready_for_claim_state(tmp_path):
+    tower_root = tmp_path / "ready-tower"
+    write_ready_impact_artifacts(tower_root)
+
+    summary = run_evaluation(
+        output_root=tmp_path / "output",
+        bike_share_root=tmp_path / "missing-bike",
+        control_tower_root=tower_root,
+    )
+
+    assert summary["impact"]["public_claim_state"] == "ready_for_claim"
+    assert summary["impact"]["guarded_task_success"] == 1.0
+    assert summary["prepublish_audit"]["public_registry_allowed"] is True
+
+
+def test_evaluation_passes_go_deployment_state(tmp_path):
+    bike_root = tmp_path / "go-bike"
+    tower_root = tmp_path / "ready-tower"
+    write_go_bike_artifacts(bike_root)
+    write_ready_impact_artifacts(tower_root)
+
+    summary = run_evaluation(
+        output_root=tmp_path / "output",
+        bike_share_root=bike_root,
+        control_tower_root=tower_root,
+    )
+
+    assert summary["agents"][1]["task_success_rate"] == 1.0
+    assert summary["holdout"]["agents"][1]["task_success_rate"] == 1.0
+    assert summary["prepublish_audit"]["public_registry_allowed"] is True
+
+
 def test_run_all_writes_reports(tmp_path):
-    summary = run_all(output_root=tmp_path, bike_share_root=tmp_path / "missing")
+    summary = run_all(
+        output_root=tmp_path,
+        bike_share_root=tmp_path / "missing-bike",
+        control_tower_root=tmp_path / "missing-tower",
+    )
     assert Path(summary["reports"]["trace_report"]).exists()
     assert (tmp_path / "reports" / "quality_gate_scores.csv").exists()
     assert (tmp_path / "reports" / "mcp_contract.json").exists()
