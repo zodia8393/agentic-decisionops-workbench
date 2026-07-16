@@ -244,24 +244,37 @@ def run_evaluation(
     reports.mkdir(parents=True, exist_ok=True)
     traces.mkdir(parents=True, exist_ok=True)
 
-    task_set = tasks if tasks is not None else default_tasks()
-    task_path = write_tasks(output_root, task_set)
     adapter = BikeShareArtifactAdapter(bike_share_root)
-    fixture_path = adapter.write_public_fixture(output_root)
     artifacts = adapter.load()
     incident_adapter = TrafficIncidentAdapter()
-    incident_fixture_path = incident_adapter.write_public_fixture(output_root)
     incident_artifacts = incident_adapter.load()
     impact_adapter = SeoulImpactAdapter(control_tower_root)
-    impact_fixture_path = impact_adapter.write_public_fixture(output_root)
     impact_artifacts = impact_adapter.load()
+    impact_public_claim_state = str(
+        impact_artifacts.summary.get("public_claim_state", "unknown")
+    )
+    task_set = (
+        tasks
+        if tasks is not None
+        else default_tasks(
+            impact_public_claim_state=impact_public_claim_state,
+            deployment_decision=str(artifacts.deployment.get("decision", "NO_GO")),
+        )
+    )
+    task_path = write_tasks(output_root, task_set)
+    fixture_path = adapter.write_public_fixture(output_root)
+    incident_fixture_path = incident_adapter.write_public_fixture(output_root)
+    impact_fixture_path = impact_adapter.write_public_fixture(output_root)
     tools = DecisionTools(artifacts, incident_artifacts, impact_artifacts)
 
     baseline = BaselineAgent(tools, TraceRecorder(traces / "baseline_trace.jsonl"))
     guarded = GuardedDecisionAgent(tools, TraceRecorder(traces / "guarded_trace.jsonl"))
 
     scored_rows, decisions = _score_task_set(task_set, [baseline, guarded])
-    holdout_set = holdout_tasks()
+    holdout_set = holdout_tasks(
+        impact_public_claim_state=impact_public_claim_state,
+        deployment_decision=str(artifacts.deployment.get("decision", "NO_GO")),
+    )
     holdout_rows, holdout_decisions = _score_task_set(holdout_set, [baseline, guarded])
 
     _write_csv(reports / "eval_results.csv", scored_rows)
@@ -297,9 +310,7 @@ def run_evaluation(
         incident_source_status=incident_artifacts.source_status,
         impact_task_success=impact_task_success,
         impact_task_count=impact_task_count,
-        impact_public_claim_state=str(
-            impact_artifacts.summary.get("public_claim_state", "unknown")
-        ),
+        impact_public_claim_state=impact_public_claim_state,
         impact_public_claim_blocked_cards=int(
             impact_artifacts.summary.get("public_claim_blocked_cards", 0) or 0
         ),

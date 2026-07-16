@@ -43,6 +43,13 @@ def _to_int(value: Any, default: int = 0) -> int:
         return default
 
 
+def _normalize_public_claim_state(value: Any) -> str:
+    state = str(value or "blocked_until_validation_ready").lower()
+    if state in {"allowed", "ready", "go", "ready_for_claim"}:
+        return "ready_for_claim"
+    return state
+
+
 def _public_card(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "impact_card_id": row.get("impact_card_id", ""),
@@ -65,8 +72,8 @@ def _public_card(row: dict[str, Any]) -> dict[str, Any]:
         "evidence_strength": row.get("evidence_strength", "preliminary"),
         "confidence_score": round(_to_float(row.get("confidence_score")), 3),
         "guardrail_state": row.get("guardrail_state", "validation_not_ready"),
-        "public_claim_state": row.get(
-            "public_claim_state", "blocked_until_validation_ready"
+        "public_claim_state": _normalize_public_claim_state(
+            row.get("public_claim_state")
         ),
         "blocker": row.get("blocker", ""),
         "evidence": row.get("evidence", ""),
