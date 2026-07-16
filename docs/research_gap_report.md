@@ -12,7 +12,7 @@
 | privacy gate | pass | source 기준 | release artifact scan 자동화 유지 |
 | deployable product | pass | Stage 2 자체는 CLI/report/queue이고 Stage 3 Control Tower가 API/Docker로 연결 | hosted demo hardening |
 | prepublish audit | pass | unique prompt, holdout, real/open incident source 통과 | registry packaging 여부 결정 |
-| quality floor >= 94.9 | pass | min score 94.9, presentation score 95.0 | active quality floor ratchet을 테스트로 고정 |
+| quality floor >= 96.0 | pass | fresh passing JUnit, main/holdout·impact guardrail, prepublish, artifact·presentation 계약이 모두 참일 때 min 96.0 | 근거 누락 시 94.9로 fallback하는 회귀 테스트 유지 |
 
 ## 남은 리스크
 

@@ -33,7 +33,7 @@ def run_all(
     )
     contract_json, contract_md = write_contract(output_root)
     report_paths = write_reports(output_root)
-    quality_path = write_quality_scores(output_root)
+    quality_path = write_quality_scores(output_root, summary)
     summary.update(
         {
             "mcp_contract_json": str(contract_json),
