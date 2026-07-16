@@ -43,6 +43,12 @@ def write_reports(output_root: Path) -> dict[str, Path]:
         row for row in holdout_metrics if row["agent"] == "guarded_decision_agent"
     )
     prepublish = summary.get("prepublish_audit", {})
+    planner_ablation = summary.get("planner_replay_ablation", {})
+    planner_agents = {
+        str(row.get("agent")): row for row in planner_ablation.get("agents", [])
+    }
+    planner_raw = planner_agents.get("planner_replay_raw", {})
+    planner_guarded = planner_agents.get("planner_replay_guarded", {})
     guarded_failures = [
         row for row in results if row["agent"] == "guarded_decision_agent" and row["success"] == "False"
     ]
@@ -67,6 +73,8 @@ def write_reports(output_root: Path) -> dict[str, Path]:
                 f"| Holdout success | n/a | {_fmt(float(holdout_guarded['task_success_rate']))} | 반복 task 밖 숨은 prompt 성공률 |",
                 f"| Impact guardrail success | n/a | {_fmt(float(summary['impact']['guarded_task_success']))} | Seoul impact card 검증/claim blocker 처리 성공률 |",
                 f"| Impact public claim state | n/a | {summary['impact'].get('public_claim_state', 'unknown')} | 검증된 성과 claim을 외부에 말할 수 있는지에 대한 현재 gate |",
+                f"| Planner replay success | {_fmt(float(planner_raw.get('task_success_rate', 0.0)))} | {_fmt(float(planner_guarded.get('task_success_rate', 0.0)))} | 고정 candidate output을 그대로 쓴 경우와 deterministic guardrail 적용 후 비교 |",
+                f"| Planner replay lift | n/a | {_fmt(float(planner_ablation.get('guarded_success_lift', 0.0)))} | synthetic fixture 기반 harness 검증이며 실제 LLM 성능 claim이 아님 |",
                 f"| Review queue items | 0.000 | {_fmt(float(summary['review_queue']['queue_items']))} | 사람이 승인해야 할 운영 의사결정 workload |",
                 f"| Prepublish gate | n/a | {prepublish.get('status', 'unknown')} | registry/GitHub 대표 등록 전 차단 상태 |",
                 "",
@@ -92,6 +100,8 @@ def write_reports(output_root: Path) -> dict[str, Path]:
                 "- `reports/guardrail_coverage.csv`: guardrail별 match rate",
                 "- `reports/failure_taxonomy.csv`: 실패 유형",
                 "- `reports/holdout_eval_metrics.csv`: 숨은 prompt 회귀 평가",
+                "- `reports/planner_ablation_metrics.csv`: planner replay raw/guarded 비교",
+                "- `reports/planner_ablation_summary.json`: fixture provenance와 claim scope",
                 "- `reports/human_review_queue.csv`: reviewer queue",
                 "- `reports/prepublish_audit.json`: 공개 등록 전 차단 gate",
                 "- `reports/mcp_contract.json`: MCP-style tool/resource/prompt contract",
@@ -101,7 +111,7 @@ def write_reports(output_root: Path) -> dict[str, Path]:
                 "",
                 "## 판단",
                 "",
-                "이 hardening pass는 Stage 2를 notebook/demo가 아니라 measurable agentic decision system으로 끌어올렸다. Traffic incident surface는 공개 NY 511 event sample을 사용하고, Seoul impact card는 public deploy gate 전 성과 claim을 차단한다. 개별 incident publication, dispatch, verified impact claim은 계속 human review와 readiness gate를 요구한다.",
+                "이 hardening pass는 Stage 2를 notebook/demo가 아니라 measurable agentic decision system으로 끌어올렸다. Provider-neutral replay harness는 동일한 planner candidate를 raw/guarded로 비교하지만 synthetic fixture이므로 실제 LLM 성능을 주장하지 않는다. Traffic incident surface는 공개 NY 511 event sample을 사용하고, Seoul impact card는 public deploy gate 전 성과 claim을 차단한다. 개별 incident publication, dispatch, verified impact claim은 계속 human review와 readiness gate를 요구한다.",
             ]
         )
         + "\n",
@@ -124,11 +134,11 @@ def write_reports(output_root: Path) -> dict[str, Path]:
                 "",
                 "## Evaluation",
                 "",
-                "Baseline single-agent와 guarded decision agent를 72개 unique regression task와 별도 holdout 15개에서 비교하고, category metrics, guardrail coverage, failure taxonomy, review queue를 생성합니다.",
+                "Baseline single-agent와 guarded decision agent를 72개 unique regression task와 별도 holdout 15개에서 비교합니다. 별도 10개 planner replay challenge에서는 고정 candidate output의 raw/guarded 차이를 측정하고 category metrics, guardrail coverage, failure taxonomy, review queue를 생성합니다.",
                 "",
                 "## Limitations",
                 "",
-                "LLM 호출은 아직 연결하지 않았고, traffic incident surface는 raw CCTV가 아니라 공개 NY 511 historical event sample을 사용합니다. Seoul impact card는 validation `READY`와 public deploy `GO`를 모두 만족하기 전까지 verified public claim 근거가 아닙니다.",
+                "Live LLM 호출은 연결하지 않았습니다. Planner replay 결과는 synthetic public-safe fixture 기반 harness 검증이며 실제 provider/model 성능이 아닙니다. Traffic incident surface는 raw CCTV가 아니라 공개 NY 511 historical event sample을 사용합니다. Seoul impact card는 validation `READY`와 public deploy `GO`를 모두 만족하기 전까지 verified public claim 근거가 아닙니다.",
             ]
         )
         + "\n",
@@ -144,6 +154,7 @@ def write_reports(output_root: Path) -> dict[str, Path]:
                 "- Input A: public-safe derived bike-share station priority, inventory, readiness, deploy decision artifacts.",
                 "- Input B: public NY 511 traffic event sample transformed into severity, evidence lag, source ambiguity, and publication gate fields.",
                 "- Input C: Control Tower Seoul Ddareungi impact cards transformed into validation, confidence, blocker, and public-claim state.",
+                "- Input D: public-safe synthetic planner candidates with prompt hashes and explicit `harness_only` claim scope.",
                 "- Raw CCTV frames, user identifiers, private logs, secrets, and local `.env` values are not copied into this project.",
                 "- Output: task dataset, trace JSONL, evaluation metrics, review queue, MCP-style contract, static HTML report.",
             ]
@@ -232,6 +243,8 @@ def write_reports(output_root: Path) -> dict[str, Path]:
     <tr><th>Agent</th><th>Success</th><th>Invalid Action</th><th>Evidence Citation</th></tr>
     {holdout_rows}
   </table>
+  <h2>Planner Replay Ablation</h2>
+  <p>Raw={html.escape(_fmt(float(planner_raw.get('task_success_rate', 0.0))))}, guarded={html.escape(_fmt(float(planner_guarded.get('task_success_rate', 0.0))))}, lift={html.escape(_fmt(float(planner_ablation.get('guarded_success_lift', 0.0))))}. Claim scope: {html.escape(str(planner_ablation.get('claim_scope', 'unknown')))}; live LLM attached: false.</p>
   <h2>Prepublish Gate</h2>
   <p>{html.escape(str(prepublish.get('status', 'unknown')))}</p>
   <h2>Guardrail Coverage</h2>
@@ -292,11 +305,27 @@ def build_quality_evidence(output_root: Path, summary: dict[str, Any] | None = N
     holdout_guarded = holdout_agents.get("guarded_decision_agent", {})
     prepublish = summary.get("prepublish_audit", {})
     impact = summary.get("impact", {})
+    planner_ablation = summary.get("planner_replay_ablation", {})
+    planner_agents = {
+        str(row.get("agent")): row for row in planner_ablation.get("agents", [])
+    }
+    planner_guarded = planner_agents.get("planner_replay_guarded", {})
+    recorded_llm = bool(planner_ablation.get("recorded_llm_outputs"))
+    planner_claim_boundary = (
+        planner_ablation.get("claim_scope") == "model_evaluation"
+        and bool(planner_ablation.get("real_llm_performance_claim_allowed"))
+        if recorded_llm
+        else planner_ablation.get("claim_scope") == "harness_only"
+        and not bool(planner_ablation.get("real_llm_performance_claim_allowed"))
+    )
     required_artifacts = [
         reports / "category_metrics.csv",
         reports / "failure_taxonomy.csv",
         reports / "guardrail_coverage.csv",
         reports / "holdout_eval_metrics.csv",
+        reports / "planner_ablation_metrics.csv",
+        reports / "planner_ablation_results.csv",
+        reports / "planner_ablation_summary.json",
         reports / "human_review_queue.csv",
         reports / "mcp_contract.json",
         reports / "trace_report.html",
@@ -311,6 +340,10 @@ def build_quality_evidence(output_root: Path, summary: dict[str, Any] | None = N
         "prepublish_gate": bool(prepublish.get("public_registry_allowed")),
         "impact_guardrail": float(impact.get("guarded_task_success", 0.0)) >= 1.0,
         "impact_claim_boundary": impact.get("public_claim_state") == "ready_for_claim",
+        "planner_replay_guarded_success": (
+            float(planner_guarded.get("task_success_rate", 0.0)) >= 1.0
+        ),
+        "planner_replay_claim_boundary": planner_claim_boundary,
         "artifact_contract": all(path.is_file() and path.stat().st_size > 0 for path in required_artifacts),
         "presentation_contract": (PROJECT_ROOT / "README.md").is_file(),
         "fresh_passing_junit": _passing_junit(reports / "pytest.xml"),
@@ -336,15 +369,15 @@ def write_quality_scores(output_root: Path, summary: dict[str, Any] | None = Non
     rows = [
         ("problem framing and business/career relevance", 95.4, "three-stage DecisionOps suite bridge with operating decision and public-claim value"),
         ("data quality, acquisition, and documentation", 95.0, "bike-share artifacts, public NY 511 sample, and Control Tower Seoul impact cards preserve public-safe claim state"),
-        ("EDA depth and insight quality", 95.0, "category metrics, guardrail coverage, holdout metrics, impact-card outcomes, and failure taxonomy expose error modes"),
+        ("EDA depth and insight quality", 95.0, "category metrics, guardrail coverage, holdout and planner replay metrics, impact-card outcomes, and failure taxonomy expose error modes"),
         ("feature engineering or statistical design", 94.9, "risk, evidence lag, source ambiguity, readiness, impact units, confidence, review SLA, and claim-state features"),
-        ("modeling, inference, optimization, or analytical method rigor", 95.0, "baseline vs guarded system benchmark includes impact-aware refusal, review, and public-claim boundary tasks"),
-        ("validation, testing, and reproducibility", 95.1, "pytest, py_compile, run_all, structural validators, prepublish audit, holdout, and impact regression are supported"),
+        ("modeling, inference, optimization, or analytical method rigor", 95.0, "baseline vs guarded benchmark and frozen planner replay ablation include refusal, review, evidence, and public-claim boundary tasks"),
+        ("validation, testing, and reproducibility", 95.1, "pytest, py_compile, run_all, prompt-hash replay validation, structural validators, prepublish audit, holdout, and impact regression are supported"),
         ("interpretation, limitations, and decision usefulness", 95.2, "review queue converts model, incident, and impact-card output into operating workflow"),
         ("code quality, structure, maintainability, and automation", 95.0, "domain adapters, tools, guardrails, traces, reports, and claim-state audit remain modular after impact expansion"),
         ("portfolio presentation, README, figures, and final report", 95.0, "README and reports state impact guardrails, holdout results, validation boundaries, and public-claim state"),
         ("UI, visibility, readability, and mobile scanability", 94.9, "static trace dashboard has metric, guardrail, holdout, prepublish, queue, and impact evidence tables"),
-        ("doctoral-level originality, depth, and technical ambition", 94.9, "cross-domain guarded DecisionOps pattern links operations ML, public incident data, impact-card validation, holdout eval, and release gates"),
+        ("doctoral-level originality, depth, and technical ambition", 94.9, "cross-domain guarded DecisionOps pattern links operations ML, public incident data, impact-card validation, provider-neutral planner replay, holdout eval, and release gates"),
     ]
     with path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)

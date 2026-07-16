@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .evals import run_evaluation
 from .mcp_contract import write_contract
+from .planner_replay import DEFAULT_PLANNER_REPLAY_PATH
 from .reports import write_quality_scores, write_reports
 
 
@@ -25,11 +26,13 @@ def run_all(
     output_root: Path = DEFAULT_OUTPUT_ROOT,
     bike_share_root: Path = DEFAULT_BIKE_SHARE_ROOT,
     control_tower_root: Path = DEFAULT_CONTROL_TOWER_ROOT,
+    planner_replay_path: Path = DEFAULT_PLANNER_REPLAY_PATH,
 ) -> dict:
     summary = run_evaluation(
         output_root=output_root,
         bike_share_root=bike_share_root,
         control_tower_root=control_tower_root,
+        planner_replay_path=planner_replay_path,
     )
     contract_json, contract_md = write_contract(output_root)
     report_paths = write_reports(output_root)
@@ -51,6 +54,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-root", default=str(DEFAULT_OUTPUT_ROOT))
     parser.add_argument("--bike-share-root", default=str(DEFAULT_BIKE_SHARE_ROOT))
     parser.add_argument("--control-tower-root", default=str(DEFAULT_CONTROL_TOWER_ROOT))
+    parser.add_argument("--planner-replay-path", default=str(DEFAULT_PLANNER_REPLAY_PATH))
     return parser.parse_args()
 
 
@@ -60,6 +64,7 @@ def main() -> None:
         Path(args.output_root),
         Path(args.bike_share_root),
         Path(args.control_tower_root),
+        Path(args.planner_replay_path),
     )
     print(
         "decisionops hardening complete: "

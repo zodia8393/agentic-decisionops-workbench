@@ -25,6 +25,7 @@ from .pipeline import (
     DEFAULT_OUTPUT_ROOT,
     run_all,
 )
+from .planner_replay import DEFAULT_PLANNER_REPLAY_PATH, task_with_planner_output
 from .tools import DecisionTools
 from .tracing import TraceRecorder
 
@@ -109,18 +110,14 @@ def _load_tools(
 
 
 def _request_task(payload: DecisionRequest) -> dict[str, Any]:
-    prompt_parts = [payload.prompt]
-    if payload.planner_action:
-        prompt_parts.append(f"planner_action: {payload.planner_action}")
-    if payload.planner_response:
-        prompt_parts.append(f"planner_response: {payload.planner_response}")
-    return {
+    task = {
         "id": payload.task_id,
         "category": payload.category,
-        "prompt": "\n".join(prompt_parts),
+        "prompt": payload.prompt,
         "requires_review": payload.requires_review,
         "metadata": payload.metadata,
     }
+    return task_with_planner_output(task, payload.planner_action, payload.planner_response)
 
 
 def _agent_for(
@@ -148,6 +145,7 @@ def create_app(
     output_root: Path | str | None = None,
     bike_share_root: Path | str | None = None,
     control_tower_root: Path | str | None = None,
+    planner_replay_path: Path | str | None = None,
 ) -> FastAPI:
     _configure_logging()
     root = Path(output_root) if output_root is not None else _env_path("OUTPUT_ROOT", DEFAULT_OUTPUT_ROOT)
@@ -161,6 +159,11 @@ def create_app(
         if control_tower_root is not None
         else _env_path("CONTROL_TOWER_OUTPUT_ROOT", DEFAULT_CONTROL_TOWER_ROOT)
     )
+    replay_path = (
+        Path(planner_replay_path)
+        if planner_replay_path is not None
+        else _env_path("PLANNER_REPLAY_PATH", DEFAULT_PLANNER_REPLAY_PATH)
+    )
 
     app = FastAPI(
         title="Agentic DecisionOps Workbench API",
@@ -173,6 +176,7 @@ def create_app(
     app.state.output_root = root
     app.state.bike_share_root = bike_root
     app.state.control_tower_root = tower_root
+    app.state.planner_replay_path = replay_path
     app.state.started_at = time.time()
 
     @app.middleware("http")
@@ -243,12 +247,16 @@ def create_app(
             "output_root": str(app.state.output_root),
             "bike_share_root": str(app.state.bike_share_root),
             "control_tower_root": str(app.state.control_tower_root),
+            "planner_replay_path": str(app.state.planner_replay_path),
             "sources": surface_summary(),
             "artifacts": {
                 "run_summary": _artifact_status(reports / "run_summary.json"),
                 "mcp_contract": _artifact_status(reports / "mcp_contract.json"),
                 "decisions": _artifact_status(reports / "decisions.json"),
                 "human_review_queue": _artifact_status(reports / "human_review_queue.csv"),
+                "planner_ablation": _artifact_status(
+                    reports / "planner_ablation_summary.json"
+                ),
             },
         }
 
@@ -308,6 +316,7 @@ def create_app(
             output_root=app.state.output_root,
             bike_share_root=app.state.bike_share_root,
             control_tower_root=app.state.control_tower_root,
+            planner_replay_path=app.state.planner_replay_path,
         )
         return {"status": "ok", "summary": summary}
 

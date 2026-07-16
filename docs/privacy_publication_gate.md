@@ -9,10 +9,12 @@
 - 민감 좌표 원본
 - token, API key, cookie, `.env` 값
 - destructive write tool
+- credential, 개인 prompt, 내부 문서가 남은 raw planner/LLM response
 
 ## 공개 허용
 
 - synthetic task fixture
+- public-safe synthetic planner replay fixture와 aggregate ablation metric
 - public-safe derived bike-share metrics
 - NY 511 public traffic event sample and derived incident decision surface
 - Control Tower derived Seoul Ddareungi impact cards with validation blockers
@@ -32,4 +34,5 @@
 | unsafe write action | blocked | guardrail `unsafe_write_action` |
 | publication restriction | blocked | guardrail `publication_restricted` |
 | validation 전 impact claim | blocked | guardrail `impact_validation_not_ready` |
+| planner replay provenance | pass | `harness_only`, `is_real_llm=false`, prompt SHA-256 고정 |
 | prepublish audit | pass | real/open second-domain source와 holdout gate 통과 |

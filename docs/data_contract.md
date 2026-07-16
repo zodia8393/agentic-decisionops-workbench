@@ -15,6 +15,7 @@
 | NY 511 traffic event sample | severity, evidence lag, source ambiguity | public/open data sample |
 | Seoul Ddareungi impact cards | expected impact, confidence, validation blocker | Control Tower public-safe derived artifact |
 | Synthetic task set | agent evaluation scenario | generated fixture |
+| Planner replay fixture | frozen candidate output와 provenance | public-safe synthetic fixture; `harness_only` |
 
 ## 결합 Join
 
@@ -29,3 +30,4 @@ Bike-share는 `station_short_name` 단위로 forecast, uncertainty, inventory, r
 - Seoul validation이 `READY`가 아니면 impact card는 public 성과 claim이 아니라 reviewer evidence다.
 - 내부 데이터, 개인정보, SNS 원문, raw CCTV frame, token, `.env` 값은 source와 public artifact에 포함하지 않는다.
 - NY 511 data는 public access source지만, 이 프로젝트의 incident action은 live dispatch authority가 아니므로 publication/dispatch는 human review로 제한한다.
+- 실제 provider output을 replay할 때는 credential, 개인 prompt, 내부 문서가 포함되지 않도록 별도 redaction/publication gate를 거친다. 기본 synthetic fixture만 Git에 포함한다.
