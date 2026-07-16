@@ -3,6 +3,8 @@
 [![ci](https://github.com/zodia8393/agentic-decisionops-workbench/actions/workflows/ci.yml/badge.svg)](https://github.com/zodia8393/agentic-decisionops-workbench/actions/workflows/ci.yml)
 [![demo](https://img.shields.io/badge/▶_TRY_DEMO-GitHub_Pages-36c5b4)](https://zodia8393.github.io/agentic-decisionops-workbench/)
 
+[![pages smoke](https://github.com/zodia8393/agentic-decisionops-workbench/actions/workflows/pages-smoke.yml/badge.svg)](https://github.com/zodia8393/agentic-decisionops-workbench/actions/workflows/pages-smoke.yml)
+
 [브라우저 데모](https://zodia8393.github.io/agentic-decisionops-workbench/) · [2분 로컬 데모](#직접-체험) · [핵심 수치](#핵심-수치) · [동작 방식](#동작-방식) · [API](#api-실행-방법)
 
 ## 결론
@@ -49,7 +51,7 @@ scripts/serve_api.sh
 | Read-only tools | 10개 | 근거 조회만 가능하고 외부 시스템 변경은 불가 |
 | Human review queue | 54건 | 사람이 승인해야 하는 판단을 별도 분리 |
 | Quality gate | 96.0 | test·artifact·guardrail 근거가 있을 때만 인정 |
-| Verified tests | 21 passed | API demo, prompt drift, 상태 전이, quality fallback 포함 |
+| Verified tests | 24 passed | API demo, public URL contract, prompt drift, 상태 전이, quality fallback 포함 |
 
 세부 metric과 재현 조건은 [실험보고서](docs/실험보고서_20260716_planner_replay_ablation.md)에서 확인할 수 있습니다.
 
@@ -183,6 +185,7 @@ cat "$OUTPUT_ROOT/reports/planner_ablation_metrics.csv"
 cat "$OUTPUT_ROOT/reports/planner_ablation_summary.json"
 cat "$OUTPUT_ROOT/reports/prepublish_audit.json"
 python3 -m pytest tests -q
+python3 scripts/smoke_public_demo.py
 ```
 
 Trace report는 `$OUTPUT_ROOT/reports/trace_report.html`에서 확인합니다.
