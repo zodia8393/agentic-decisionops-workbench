@@ -6,6 +6,7 @@ data/*
 !data/
 !data/public/
 !data/public/ny_511_events_sample.json
+!data/public/planner_replay_fixture.json
 models/
 reports/
 figures/

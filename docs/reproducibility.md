@@ -13,6 +13,7 @@
 pip install -r requirements.txt
 OUTPUT_ROOT=/tmp/agentic-decisionops-workbench \
 CONTROL_TOWER_OUTPUT_ROOT=/tmp/decisionops-control-tower \
+PLANNER_REPLAY_PATH="$PWD/data/public/planner_replay_fixture.json" \
 scripts/run_all.sh
 ```
 
@@ -26,8 +27,8 @@ scripts/fetch_ny511_sample.py
 
 ```bash
 PYTHONPATH=src python3 -m pytest tests -q
-python3 ../scripts/validate_weekend_project.py --project . --stage saturday
-python3 ../scripts/validate_weekend_project.py --project . --stage sunday --ratchet-mode floor
+python3 ../scripts/validate_weekend_project.py --project "$PWD" --stage saturday
+python3 ../scripts/validate_weekend_project.py --project "$PWD" --stage sunday --ratchet-mode floor
 ```
 
 Sunday floor validator는 현재 active floor 보존 gate입니다. `strict` mode는 기존 floor를 초과해 portfolio 전체 ratchet을 올릴 때만 사용합니다. `reports/quality_evidence.json`의 JUnit·main/holdout·impact guardrail·prepublish·artifact checks가 모두 참이 아니면 score는 기존 94.9~95.4 범위로 복귀합니다.
@@ -40,6 +41,9 @@ Sunday floor validator는 현재 active floor 보존 gate입니다. `strict` mod
 - `reports/guardrail_coverage.csv`
 - `reports/failure_taxonomy.csv`
 - `reports/holdout_eval_metrics.csv`
+- `reports/planner_ablation_results.csv`
+- `reports/planner_ablation_metrics.csv`
+- `reports/planner_ablation_summary.json`
 - `reports/prepublish_audit.json`
 - `reports/human_review_queue.csv`
 - `reports/trace_report.html`
@@ -48,4 +52,4 @@ Sunday floor validator는 현재 active floor 보존 gate입니다. `strict` mod
 
 ## 성공 기준
 
-`run_all`, `pytest`, Saturday validator, Sunday floor validator가 모두 통과하면 기존 public registry packaging 상태를 유지한다. 단, incident data는 live dispatch authority가 아니고 Seoul impact card는 validation `READY` 전까지 public claim 근거가 아니다.
+`run_all`, `pytest`, Saturday validator, Sunday floor validator가 모두 통과하면 기존 public registry packaging 상태를 유지한다. Planner replay는 task ID와 prompt SHA-256이 모두 맞아야 실행된다. 단, synthetic replay는 실제 LLM 성능 근거가 아니며, incident data는 live dispatch authority가 아니고 Seoul impact card는 validation `READY` 전까지 public claim 근거가 아니다.

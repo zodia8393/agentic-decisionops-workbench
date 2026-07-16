@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
@@ -12,8 +12,16 @@ from .agents import AgentDecision, BaselineAgent, GuardedDecisionAgent
 from .domain_adapters.bike_share import BikeShareArtifactAdapter
 from .domain_adapters.seoul_impact import DEFAULT_CONTROL_TOWER_ROOT, SeoulImpactAdapter
 from .domain_adapters.traffic_incident import TrafficIncidentAdapter
+from .planner_replay import (
+    DEFAULT_PLANNER_REPLAY_PATH,
+    GUARDED_PLANNER_AGENT,
+    load_planner_replay,
+    raw_planner_decision,
+    task_with_planner_output,
+    validate_replay_alignment,
+)
 from .review_queue import build_review_queue
-from .tasks import Task, default_tasks, holdout_tasks, write_tasks
+from .tasks import Task, default_tasks, holdout_tasks, planner_ablation_tasks, write_tasks
 from .tools import DecisionTools
 from .tracing import TraceRecorder
 
@@ -232,11 +240,92 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def _run_planner_replay_ablation(
+    *,
+    output_root: Path,
+    tools: DecisionTools,
+    replay_path: Path,
+) -> dict[str, Any]:
+    """Compare frozen planner candidates before and after deterministic guardrails."""
+
+    reports = output_root / "reports"
+    traces = output_root / "traces"
+    dataset = load_planner_replay(replay_path)
+    task_set = planner_ablation_tasks()
+    validate_replay_alignment(dataset, task_set)
+    record_by_id = {record.task_id: record for record in dataset.records}
+    guarded_agent = GuardedDecisionAgent(
+        tools,
+        TraceRecorder(traces / "planner_replay_guarded_trace.jsonl"),
+    )
+
+    rows: list[dict[str, Any]] = []
+    decisions: list[dict[str, Any]] = []
+    for task in task_set:
+        record = record_by_id[str(task["id"])]
+        raw_decision = raw_planner_decision(record)
+        guarded_task = task_with_planner_output(task, record.action, record.response)
+        guarded_decision = replace(
+            guarded_agent.decide(guarded_task),
+            agent=GUARDED_PLANNER_AGENT,
+        )
+        rows.extend(
+            [
+                _score_decision(task, raw_decision),
+                _score_decision(task, guarded_decision),
+            ]
+        )
+        decisions.extend([asdict(raw_decision), asdict(guarded_decision)])
+
+    metrics = [
+        _metrics(rows, "planner_replay_raw"),
+        _metrics(rows, GUARDED_PLANNER_AGENT),
+    ]
+    lift = metrics[1]["task_success_rate"] - metrics[0]["task_success_rate"]
+    _write_csv(reports / "planner_ablation_results.csv", rows)
+    _write_csv(reports / "planner_ablation_metrics.csv", metrics)
+    _write_csv(reports / "planner_ablation_category_metrics.csv", _category_metrics(rows))
+    (reports / "planner_ablation_decisions.json").write_text(
+        json.dumps(decisions, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    summary = {
+        "status": (
+            "recorded_llm_replay_evaluated"
+            if dataset.is_real_llm
+            else "replay_harness_validated"
+        ),
+        "live_llm_attached": False,
+        "recorded_llm_outputs": dataset.is_real_llm,
+        "real_llm_performance_claim_allowed": (
+            dataset.is_real_llm and dataset.claim_scope == "model_evaluation"
+        ),
+        "claim_scope": dataset.claim_scope,
+        "fixture_id": dataset.fixture_id,
+        "fixture_name": replay_path.name,
+        "dataset_sha256": dataset.dataset_sha256,
+        "source_kind": dataset.source_kind,
+        "provider": dataset.provider,
+        "model": dataset.model,
+        "captured_at_utc": dataset.captured_at_utc,
+        "tasks": len(task_set),
+        "agents": metrics,
+        "guarded_success_lift": lift,
+        "trace_path": "traces/planner_replay_guarded_trace.jsonl",
+    }
+    (reports / "planner_ablation_summary.json").write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return summary
+
+
 def run_evaluation(
     output_root: Path,
     bike_share_root: Path,
     control_tower_root: Path = DEFAULT_CONTROL_TOWER_ROOT,
     tasks: list[Task] | None = None,
+    planner_replay_path: Path = DEFAULT_PLANNER_REPLAY_PATH,
 ) -> dict[str, Any]:
     output_root.mkdir(parents=True, exist_ok=True)
     reports = output_root / "reports"
@@ -276,6 +365,11 @@ def run_evaluation(
         deployment_decision=str(artifacts.deployment.get("decision", "NO_GO")),
     )
     holdout_rows, holdout_decisions = _score_task_set(holdout_set, [baseline, guarded])
+    planner_ablation = _run_planner_replay_ablation(
+        output_root=output_root,
+        tools=tools,
+        replay_path=planner_replay_path,
+    )
 
     _write_csv(reports / "eval_results.csv", scored_rows)
     metrics = [_metrics(scored_rows, "baseline_single_agent"), _metrics(scored_rows, "guarded_decision_agent")]
@@ -345,6 +439,7 @@ def run_evaluation(
             "tasks": len(holdout_set),
             "agents": holdout_metrics,
         },
+        "planner_replay_ablation": planner_ablation,
         "prepublish_audit": prepublish_audit,
         "trace_paths": {
             "baseline": "traces/baseline_trace.jsonl",

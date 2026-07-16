@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 import sys
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
@@ -15,8 +17,17 @@ from agentic_decisionops_workbench.evals import _score_decision, run_evaluation
 from agentic_decisionops_workbench.guardrails import evaluate_guardrails
 from agentic_decisionops_workbench.mcp_contract import contract
 from agentic_decisionops_workbench.pipeline import run_all
+from agentic_decisionops_workbench.planner_replay import (
+    DEFAULT_PLANNER_REPLAY_PATH,
+    load_planner_replay,
+    validate_replay_alignment,
+)
 from agentic_decisionops_workbench.reports import write_quality_scores
-from agentic_decisionops_workbench.tasks import default_tasks, holdout_tasks
+from agentic_decisionops_workbench.tasks import (
+    default_tasks,
+    holdout_tasks,
+    planner_ablation_tasks,
+)
 from agentic_decisionops_workbench.tools import DecisionTools
 from agentic_decisionops_workbench.agents import GuardedDecisionAgent
 
@@ -212,6 +223,24 @@ def test_default_task_set_has_expected_size_and_categories():
     } <= categories
 
 
+def test_planner_replay_fixture_is_frozen_and_harness_only():
+    tasks = planner_ablation_tasks()
+    dataset = load_planner_replay(DEFAULT_PLANNER_REPLAY_PATH)
+
+    validate_replay_alignment(dataset, tasks)
+
+    assert len(tasks) == 10
+    assert len({task["prompt"] for task in tasks}) == 10
+    assert dataset.source_kind == "synthetic_public_safe"
+    assert dataset.is_real_llm is False
+    assert dataset.claim_scope == "harness_only"
+
+    drifted = [dict(task) for task in tasks]
+    drifted[0]["prompt"] += " changed"
+    with pytest.raises(ValueError, match="prompt drift"):
+        validate_replay_alignment(dataset, drifted)
+
+
 def test_guarded_agent_improves_over_baseline(tmp_path):
     summary = run_evaluation(
         output_root=tmp_path,
@@ -225,8 +254,16 @@ def test_guarded_agent_improves_over_baseline(tmp_path):
     assert summary["prepublish_audit"]["public_registry_allowed"] is True
     assert summary["impact"]["guarded_task_count"] == 12
     assert summary["impact"]["guarded_task_success"] == 1.0
+    planner_ablation = summary["planner_replay_ablation"]
+    assert planner_ablation["live_llm_attached"] is False
+    assert planner_ablation["real_llm_performance_claim_allowed"] is False
+    assert planner_ablation["agents"][0]["task_success_rate"] == 0.2
+    assert planner_ablation["agents"][1]["task_success_rate"] == 1.0
+    assert planner_ablation["guarded_success_lift"] == 0.8
     assert (tmp_path / "traces" / "guarded_trace.jsonl").exists()
     assert (tmp_path / "reports" / "holdout_eval_metrics.csv").exists()
+    assert (tmp_path / "reports" / "planner_ablation_metrics.csv").exists()
+    assert (tmp_path / "reports" / "planner_ablation_summary.json").exists()
     assert (tmp_path / "reports" / "prepublish_audit.json").exists()
 
 
