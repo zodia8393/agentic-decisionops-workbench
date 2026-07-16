@@ -12,6 +12,7 @@ from typing import Any, Literal
 import uuid
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from .agents import BaselineAgent, GuardedDecisionAgent
@@ -32,6 +33,7 @@ from .tracing import TraceRecorder
 
 LOGGER = logging.getLogger("agentic_decisionops_workbench")
 AgentName = Literal["guarded_decision_agent", "baseline_single_agent"]
+DEMO_PAGE_PATH = Path(__file__).resolve().parents[2] / "docs" / "demo" / "index.html"
 
 
 class DecisionRequest(BaseModel):
@@ -225,6 +227,7 @@ def create_app(
     def read_root() -> dict[str, str]:
         return {
             "service": "agentic-decisionops-workbench",
+            "demo": "/demo",
             "health": "/health",
             "contract": "/v1/contract",
             "decision": "/v1/decisions",
@@ -232,6 +235,13 @@ def create_app(
             "evaluation": "/v1/evaluations/run",
             "openapi": "/docs",
         }
+
+    @app.get("/demo", response_class=HTMLResponse, include_in_schema=False)
+    def demo() -> HTMLResponse:
+        try:
+            return HTMLResponse(DEMO_PAGE_PATH.read_text(encoding="utf-8"))
+        except OSError as exc:
+            raise HTTPException(status_code=503, detail="demo page is unavailable") from exc
 
     @app.get("/health")
     def health() -> dict[str, Any]:

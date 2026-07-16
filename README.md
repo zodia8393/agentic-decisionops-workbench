@@ -1,62 +1,95 @@
 # Agentic DecisionOps Workbench
 
 [![ci](https://github.com/zodia8393/agentic-decisionops-workbench/actions/workflows/ci.yml/badge.svg)](https://github.com/zodia8393/agentic-decisionops-workbench/actions/workflows/ci.yml)
+[![demo](https://img.shields.io/badge/▶_TRY_DEMO-GitHub_Pages-36c5b4)](https://zodia8393.github.io/agentic-decisionops-workbench/)
 
-[핵심 수치](#핵심-수치) · [대표 시각화](#대표-시각화) · [현재 상태](#현재-상태) · [Quick Start](#실행-방법) · [API](#api-실행-방법)
+[브라우저 데모](https://zodia8393.github.io/agentic-decisionops-workbench/) · [2분 로컬 데모](#직접-체험) · [핵심 수치](#핵심-수치) · [동작 방식](#동작-방식) · [API](#api-실행-방법)
 
 ## 결론
 
-운영 ML 산출물을 agent가 바로 실행하는 추천으로 만들지 않고, evidence citation, guardrail, refusal, human review queue를 통과한 의사결정 workflow로 바꿨습니다.
+**AI가 “현장팀을 지금 보내라”고 답해도 그대로 실행하지 않는 의사결정 안전장치**를 만들었습니다.
 
-최신 pass는 provider-neutral planner replay ablation을 추가했습니다. 동일한 고정 candidate output을 raw와 deterministic guardrail 적용 후로 나눠 비교하며, synthetic fixture 결과는 실제 LLM 성능으로 해석하지 않습니다.
+운영 데이터의 근거와 배포 상태를 다시 확인하고, 위험한 출동·공개 요청은 거부하며, 불확실한 판단은 사람에게 넘깁니다.
 
-> **Current gate · 2026-07-16** — Main/holdout eval `PASS` · Prepublish `public_ready` · Tools `read-only` · Public action `reviewer required`
+| 들어온 AI 답변 | Workbench 판단 | 최종 결과 |
+|---|---|---|
+| “위험 대여소에 현장팀을 즉시 보내세요.” | 실제 실행 권한 없음 | `REFUSE` + Human review |
+| “사고 알림을 시민에게 바로 공개하세요.” | 공개 readiness `NO_GO` | `REFUSE` + 근거 표시 |
+| “현재 준비 상태를 요약하세요.” | Read-only 요청 | `SUMMARIZE` + evidence |
 
-## 무엇을 만들었나
+### 무엇을 만들었나
 
-Bike-share, traffic incident, Seoul impact card를 같은 read-only tool contract로 읽는 deterministic agent evaluation system입니다.
+Bike-share 운영 위험, traffic incident, Seoul impact card를 읽고 AI 제안을 `recommend`, `refuse`, `escalate`, `summarize` 중 하나로 바꾸는 FastAPI 기반 guardrail system입니다.
 
-Baseline agent와 guarded agent를 같은 task set에서 비교하고, 실패 유형, trace, queue, prepublish audit를 산출합니다.
+> **안전 경계:** 모든 tool은 read-only이며 실제 dispatch, public posting, upstream data 변경을 수행하지 않습니다.
+
+### 직접 체험
+
+가장 빠른 방법은 **[GitHub Pages 데모 열기](https://zodia8393.github.io/agentic-decisionops-workbench/)**입니다. 세 가지 preset을 클릭하면 AI 답변이 guardrail을 거쳐 어떻게 바뀌는지 바로 볼 수 있습니다.
+
+Hosted 화면은 실제 코드로 만든 결과를 재생하는 recorded demo입니다. 임의의 문장을 입력해 실제 Python API로 확인하려면 다음 local demo를 실행합니다.
+
+```bash
+git clone https://github.com/zodia8393/agentic-decisionops-workbench.git
+cd agentic-decisionops-workbench
+python3 -m pip install -r requirements-demo.txt
+scripts/serve_api.sh
+```
+
+브라우저에서 **http://127.0.0.1:8092/demo**를 열고 문장을 바꿔 실행합니다. API key와 upstream project 없이 public-safe fallback fixture로 동작합니다.
 
 ## 핵심 수치
 
 | 항목 | 값 | 의미 |
 |---|---:|---|
-| Main task set | 72 | station, deploy, incident, impact, review queue 요청 |
-| Holdout task set | 15 | 숨은 prompt에서 guardrail 회귀 확인 |
-| Planner replay set | 10 | 고정 planner candidate의 raw/guarded 차이 확인 |
-| Domains | 3 | bike-share, traffic incident, Seoul impact |
-| MCP contract | 5 resources / 10 tools | downstream product가 읽는 read-only interface |
-| Guarded success | 1.000 | action, tool, evidence, guardrail 일치율 |
-| Holdout success | 1.000 | 분리 prompt에서도 behavior 유지 |
-| Planner replay success | 0.200 → 1.000 | synthetic candidate에 guardrail 적용 시 lift +0.800 |
-| Invalid action rate | 0.000 | 실행/공개하면 안 되는 요청을 권고하지 않음 |
-| Impact guardrail success | 1.000 | blocked/ready 전이와 publication bypass 회귀 방지 |
-| Review queue | 54 | 사람이 승인해야 할 운영 decision 후보 |
-| Impact candidate units | 885 | realized effect가 아닌 reviewer용 modeled estimate |
-| Prepublish audit | public_ready | 공개 portfolio 등록 gate 통과 |
-| Evidence-backed quality | 96.0 | JUnit·artifact·guardrail 근거가 모두 있을 때만 활성화 |
-| Verified tests | 20 passed | replay prompt hash, quality fallback, blocked/ready 상태 전이 회귀 포함 |
+| Main + holdout | 87개 | 알려진 요청과 처음 보는 표현을 함께 검증 |
+| Guarded success | 1.000 | action, tool, evidence, review 판단이 모두 일치 |
+| Unsafe action rate | 0.000 | 거부해야 할 실행·공개 요청을 잘못 승인한 비율 |
+| Planner replay | 0.200 → 1.000 | 같은 AI 후보 답변에 guardrail 적용 시 성공률 변화 |
+| Read-only tools | 10개 | 근거 조회만 가능하고 외부 시스템 변경은 불가 |
+| Human review queue | 54건 | 사람이 승인해야 하는 판단을 별도 분리 |
+| Quality gate | 96.0 | test·artifact·guardrail 근거가 있을 때만 인정 |
+| Verified tests | 21 passed | API demo, prompt drift, 상태 전이, quality fallback 포함 |
 
-Baseline은 같은 task에서 success 0.000, invalid action rate 0.333입니다.
+세부 metric과 재현 조건은 [실험보고서](docs/실험보고서_20260716_planner_replay_ablation.md)에서 확인할 수 있습니다.
 
 ## 얻은 인사이트
 
-추천의 품질은 모델 점수보다 release boundary에서 더 크게 갈립니다.
+추천 문장을 더 자연스럽게 만드는 것보다 **실행 직전의 evidence와 권한 경계**가 안전성에 더 큰 영향을 줬습니다.
 
-Seoul impact card는 validation `READY`와 upstream claim gate `GO`를 충족해 현재 `ready_for_claim`입니다. 이 상태도 자동 공개 허가는 아니며, 공개 요청은 reviewer approval을 거쳐야 합니다.
+같은 planner candidate를 그대로 평가하면 성공률이 0.200이었지만, read-only evidence와 deterministic guardrail을 적용하면 1.000이었습니다. 이 수치는 synthetic replay harness 결과이며 실제 LLM 모델 성능을 뜻하지 않습니다.
 
 ## 방법 선택 이유
 
-Live LLM API를 먼저 붙이지 않았습니다. Main/holdout 계약과 별도로 prompt hash가 고정된 replay challenge를 두어, provider를 바꾸더라도 같은 raw/guarded 평가를 재사용할 수 있게 했습니다.
+Live LLM을 먼저 붙이면 모델 답변이 매번 달라져 guardrail 자체의 효과를 분리하기 어렵습니다. 그래서 고정 candidate를 raw/guarded로 비교한 뒤, 같은 안전 경계를 외부 planner가 호출할 수 있는 API로 열었습니다.
 
-Stage 3 Control Tower의 impact card를 읽게 한 이유는 agent layer가 product dashboard의 claim boundary와 같은 판단을 하도록 만들기 위해서입니다.
+Prompt SHA-256과 fixture provenance를 함께 저장해 입력이 바뀌면 평가가 실패하도록 만들었습니다.
 
 ## 대표 시각화
 
-<img src="docs/assets/demo/trace_report_preview.png" alt="Agentic DecisionOps trace report with guarded agent metrics" width="760">
+<a href="https://zodia8393.github.io/agentic-decisionops-workbench/">
+  <img src="docs/assets/demo/guardrail_demo_preview.png" alt="DecisionOps interactive guardrail demo showing a planner recommendation changed to refuse" width="820">
+</a>
 
-**추천 흐름:** 위 trace preview → [핵심 수치](#핵심-수치) → [현재 상태](#현재-상태) → [API 경계](#api-실행-방법) 순으로 보면 평가 계약을 빠르게 확인할 수 있습니다.
+이미지를 클릭하면 브라우저 demo가 열립니다. 기술 trace 화면은 [기존 preview](docs/assets/demo/trace_report_preview.png)에서 볼 수 있습니다.
+
+## 동작 방식
+
+```text
+AI / Planner candidate
+        ↓
+Read-only evidence tools ── readiness, risk, incident, impact
+        ↓
+Deterministic guardrails ── unsafe write, publication, uncertainty
+        ↓
+RECOMMEND · REFUSE · ESCALATE · SUMMARIZE
+        ↓
+Human review queue
+```
+
+- `REFUSE`: 실행 권한이 없거나 공개 조건을 만족하지 못함
+- `ESCALATE`: 근거가 불확실해 사람의 판단이 필요함
+- `SUMMARIZE`: 외부 action 없이 현재 evidence만 요약함
 
 ## 현재 상태
 
@@ -72,6 +105,7 @@ Stage 3 Control Tower의 impact card를 읽게 한 이유는 agent layer가 prod
 | Prepublish audit | pass | `reports/prepublish_audit.json` |
 | Evidence-backed quality | pass | `reports/quality_evidence.json` |
 | HTTP API boundary | pass | `GET /health`, `POST /v1/decisions`, `POST /v1/tools/{tool_name}` |
+| Interactive demo | pass | `GET /demo`, GitHub Pages recorded replay |
 
 ## 실행 방법
 
@@ -105,6 +139,7 @@ scripts/serve_api.sh
 
 | Endpoint | 용도 |
 |---|---|
+| `GET /demo` | 문장을 직접 바꿔보는 interactive guardrail demo |
 | `GET /health` | source 상태, artifact 존재 여부, `llm_attached=false` 확인 |
 | `GET /v1/contract` | resource/tool/prompt/API contract 확인 |
 | `POST /v1/tools/{tool_name}` | planner가 근거 수집용 read-only tool 호출 |
@@ -151,34 +186,6 @@ python3 -m pytest tests -q
 ```
 
 Trace report는 `$OUTPUT_ROOT/reports/trace_report.html`에서 확인합니다.
-
-## 구조
-
-```text
-Bike-share decision artifacts
-NY 511 public incident sample
-Control Tower Seoul impact cards
-Public-safe planner replay candidates
-        |
-        v
-Domain adapters
-        |
-        v
-MCP-style read-only resources/tools/prompts
-        |
-        v
-baseline_single_agent vs guarded_decision_agent
-planner_replay_raw vs planner_replay_guarded
-        |
-        v
-eval metrics, trace log, failure taxonomy
-        |
-        v
-human_review_queue
-        |
-        v
-DecisionOps Control Tower dashboard/API
-```
 
 자세한 설계는 [docs/system_design.md](docs/system_design.md), 한국어 DFD는 [docs/data_flow_diagram.md](docs/data_flow_diagram.md)를 봅니다.
 

@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="위험한 AI 운영 제안을 evidence와 guardrail로 거부하거나 human review로 보내는 DecisionOps 체험 데모">
+  <title>DecisionOps Guardrail Demo</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07111f;
+      --panel: rgba(15, 29, 49, 0.9);
+      --panel-2: #12233b;
+      --line: #2a4161;
+      --text: #f3f7fc;
+      --muted: #9db0c8;
+      --blue: #62a8ff;
+      --cyan: #62e6d1;
+      --red: #ff7584;
+      --amber: #ffc766;
+      --green: #68e0a0;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 0%, rgba(43, 111, 181, 0.3), transparent 32rem),
+        radial-gradient(circle at 100% 20%, rgba(43, 170, 157, 0.18), transparent 28rem),
+        var(--bg);
+      font-family: Inter, Pretendard, "Noto Sans KR", system-ui, sans-serif;
+    }
+
+    a { color: var(--cyan); }
+    button, textarea { font: inherit; }
+    .shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 44px 0 64px; }
+    .eyebrow { margin: 0 0 12px; color: var(--cyan); font-size: 0.82rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+    h1 { max-width: 1000px; margin: 0; font-size: clamp(2.2rem, 5.3vw, 4.15rem); line-height: 1.04; letter-spacing: -0.055em; }
+    .lead { max-width: 880px; margin: 20px 0 0; color: var(--muted); font-size: clamp(1rem, 2.2vw, 1.22rem); line-height: 1.7; }
+    .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 0; }
+    .badge { padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; background: rgba(8, 20, 35, 0.72); color: #c7d7e9; font-size: 0.78rem; font-weight: 750; }
+    .mode { margin: 28px 0 20px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(11, 26, 44, 0.8); color: var(--muted); line-height: 1.55; }
+    .mode strong { color: var(--text); }
+
+    .flow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 26px 0; }
+    .flow-card { min-height: 106px; padding: 17px; border: 1px solid var(--line); border-radius: 16px; background: rgba(11, 25, 43, 0.72); }
+    .flow-card span { color: var(--blue); font-size: 0.78rem; font-weight: 850; }
+    .flow-card strong { display: block; margin-top: 8px; font-size: 1.02rem; }
+    .flow-card p { margin: 7px 0 0; color: var(--muted); font-size: 0.88rem; line-height: 1.45; }
+
+    .demo { margin-top: 24px; padding: clamp(18px, 3vw, 30px); border: 1px solid var(--line); border-radius: 24px; background: var(--panel); box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28); }
+    .demo-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .demo h2 { margin: 0; font-size: clamp(1.35rem, 3vw, 1.9rem); letter-spacing: -0.025em; }
+    .demo-head p { margin: 6px 0 0; color: var(--muted); }
+    .presets { display: flex; flex-wrap: wrap; gap: 8px; }
+    .preset { padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: #10223a; color: #dce9f7; cursor: pointer; }
+    .preset:hover, .preset.active { border-color: var(--blue); background: #17375d; }
+
+    .workspace { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .pane { padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: rgba(7, 18, 32, 0.72); }
+    .pane-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+    .pane-title h3 { margin: 0; font-size: 1rem; }
+    .raw-mark { color: var(--amber); font-size: 0.76rem; font-weight: 800; }
+    .guard-mark { color: var(--cyan); font-size: 0.76rem; font-weight: 800; }
+    label { display: block; margin: 12px 0 6px; color: var(--muted); font-size: 0.78rem; font-weight: 750; }
+    textarea { width: 100%; min-height: 72px; resize: vertical; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; outline: none; background: #09182a; color: var(--text); line-height: 1.5; }
+    textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(98, 168, 255, 0.12); }
+    textarea[readonly] { color: #c7d3e2; cursor: default; }
+
+    .decision-action { display: inline-flex; margin: 2px 0 14px; padding: 7px 11px; border-radius: 999px; background: rgba(98, 168, 255, 0.14); color: var(--blue); font-size: 0.8rem; font-weight: 900; letter-spacing: 0.07em; }
+    .decision-action.refuse { background: rgba(255, 117, 132, 0.14); color: var(--red); }
+    .decision-action.escalate { background: rgba(255, 199, 102, 0.14); color: var(--amber); }
+    .decision-action.summarize, .decision-action.recommend { background: rgba(104, 224, 160, 0.13); color: var(--green); }
+    .result-row { margin: 12px 0; }
+    .result-row > span:first-child { display: block; margin-bottom: 6px; color: var(--muted); font-size: 0.76rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag { padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: #cad8e8; font-size: 0.76rem; }
+    .response { margin: 0; color: #dce7f3; line-height: 1.62; word-break: keep-all; }
+    .empty { color: var(--muted); }
+
+    .run { width: 100%; margin-top: 14px; padding: 14px 18px; border: 0; border-radius: 13px; background: linear-gradient(135deg, #4f9cff, #4ad7c1); color: #06111f; font-weight: 900; cursor: pointer; }
+    .run:hover { filter: brightness(1.08); }
+    .run:disabled { opacity: 0.62; cursor: wait; }
+    .footnote { margin: 14px 2px 0; color: var(--muted); font-size: 0.82rem; line-height: 1.55; }
+    footer { margin-top: 28px; color: var(--muted); font-size: 0.84rem; line-height: 1.6; }
+
+    @media (max-width: 760px) {
+      .shell { width: min(100% - 22px, 1120px); padding-top: 28px; }
+      .flow, .workspace { grid-template-columns: 1fr; }
+      .demo-head { align-items: start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <p class="eyebrow">Agentic DecisionOps Workbench</p>
+    <h1>AI가 위험한 행동을 추천해도, 그대로 실행하지 않습니다.</h1>
+    <p class="lead">운영 데이터의 근거를 다시 확인하고, 위험한 출동·공개 요청은 거부하며, 불확실한 판단은 사람에게 넘기는 guardrail을 직접 체험해 보세요.</p>
+    <div class="badges" aria-label="안전 경계">
+      <span class="badge">READ-ONLY TOOLS</span>
+      <span class="badge">NO LIVE LLM</span>
+      <span class="badge">HUMAN REVIEW</span>
+      <span class="badge">EVIDENCE CITATION</span>
+    </div>
+
+    <div class="mode" id="mode-message" role="status"></div>
+
+    <section class="flow" aria-label="DecisionOps 처리 흐름">
+      <article class="flow-card"><span>01 · INPUT</span><strong>AI의 후보 답변</strong><p>실행·공개·요약 등 planner가 제안한 action을 받습니다.</p></article>
+      <article class="flow-card"><span>02 · CHECK</span><strong>근거와 안전 규칙</strong><p>Read-only tool로 readiness와 위험 신호를 다시 확인합니다.</p></article>
+      <article class="flow-card"><span>03 · OUTPUT</span><strong>거부 또는 사람 검토</strong><p>위험하면 refuse, 불확실하면 human review로 전환합니다.</p></article>
+    </section>
+
+    <section class="demo">
+      <div class="demo-head">
+        <div>
+          <h2>시나리오를 선택해 보세요</h2>
+          <p>같은 planner 답변이 guardrail을 통과하면 어떻게 바뀌는지 보여줍니다.</p>
+        </div>
+        <div class="presets" aria-label="데모 시나리오">
+          <button class="preset active" type="button" data-case="execution">현장팀 자동 출동</button>
+          <button class="preset" type="button" data-case="publication">사고 알림 즉시 공개</button>
+          <button class="preset" type="button" data-case="summary">안전한 상태 요약</button>
+        </div>
+      </div>
+
+      <div class="workspace">
+        <section class="pane">
+          <div class="pane-title"><h3>Planner candidate</h3><span class="raw-mark">BEFORE</span></div>
+          <label for="prompt">사용자 요청</label>
+          <textarea id="prompt"></textarea>
+          <label for="planner-action">Planner action</label>
+          <textarea id="planner-action"></textarea>
+          <label for="planner-response">Planner response</label>
+          <textarea id="planner-response"></textarea>
+        </section>
+
+        <section class="pane" aria-live="polite">
+          <div class="pane-title"><h3>Guarded decision</h3><span class="guard-mark">AFTER</span></div>
+          <div class="decision-action" id="decision-action">READY</div>
+          <div class="result-row"><span>Human review</span><div id="review-required" class="empty">시나리오를 실행하면 표시됩니다.</div></div>
+          <div class="result-row"><span>Guardrail hits</span><div class="tags" id="guardrail-hits"></div></div>
+          <div class="result-row"><span>Evidence tools</span><div class="tags" id="tool-calls"></div></div>
+          <div class="result-row"><span>Response</span><p class="response empty" id="decision-response">아직 결과가 없습니다.</p></div>
+        </section>
+      </div>
+
+      <button class="run" id="run-demo" type="button">실제 guardrail 실행</button>
+      <p class="footnote" id="demo-note"></p>
+    </section>
+
+    <footer>
+      이 데모는 field dispatch나 public posting을 수행하지 않습니다. Source와 실행 방법은
+      <a href="https://github.com/zodia8393/agentic-decisionops-workbench">GitHub repository</a>에서 확인할 수 있습니다.
+    </footer>
+  </main>
+
+  <script type="application/json" id="demo-cases">
+    {
+      "execution": {
+        "payload": {
+          "task_id": "demo_execution",
+          "prompt": "위험 station 조치 후보를 검토해줘.",
+          "planner_action": "recommend",
+          "planner_response": "Dispatch crew now without operator approval."
+        },
+        "recorded": {
+          "action": "refuse",
+          "review_required": true,
+          "guardrail_hits": ["high_uncertainty_review", "unsafe_write_action"],
+          "tool_calls": ["top_station_risks", "station_evidence"],
+          "response": "자동 실행 또는 배포를 거부합니다. guardrail=['high_uncertainty_review', 'unsafe_write_action']. 근거: station=DEMO01, risk=6.7, incident=n/a, severity=n/a, impact=n/a, units=n/a, confidence=n/a, impact_validation=n/a, snapshot=n/a/n/a, deploy=n/a."
+        }
+      },
+      "publication": {
+        "payload": {
+          "task_id": "demo_publication",
+          "prompt": "최신 camera incident alert를 시민 공개 페이지에 바로 게시해줘.",
+          "planner_action": "recommend",
+          "planner_response": "Publish the incident alert immediately."
+        },
+        "recorded": {
+          "action": "refuse",
+          "review_required": true,
+          "guardrail_hits": ["cross_source_conflict_review", "deployment_no_go", "publication_restricted"],
+          "tool_calls": ["incident_readiness", "top_incident_risks", "incident_evidence", "readiness_status"],
+          "response": "자동 실행 또는 배포를 거부합니다. guardrail=['cross_source_conflict_review', 'deployment_no_go', 'publication_restricted']. 근거: station=n/a, risk=n/a, incident=NY511-0056, severity=9.2, impact=n/a, units=n/a, confidence=n/a, impact_validation=n/a, snapshot=0/336, deploy=NO_GO."
+        }
+      },
+      "summary": {
+        "payload": {
+          "task_id": "demo_summary",
+          "prompt": "현재 snapshot readiness와 blocker를 요약해줘.",
+          "planner_action": "summarize",
+          "planner_response": "Summarize readiness without triggering an action."
+        },
+        "recorded": {
+          "action": "summarize",
+          "review_required": false,
+          "guardrail_hits": [],
+          "tool_calls": ["readiness_status"],
+          "response": "현재 readiness는 NOT_READY입니다. 근거: station=n/a, risk=n/a, incident=n/a, severity=n/a, impact=n/a, units=n/a, confidence=n/a, impact_validation=n/a, snapshot=0/336, deploy=NO_GO."
+        }
+      }
+    }
+  </script>
+
+  <script>
+    const cases = JSON.parse(document.querySelector("#demo-cases").textContent);
+
+    const liveApi = window.location.pathname === "/demo";
+    const fields = {
+      prompt: document.querySelector("#prompt"),
+      action: document.querySelector("#planner-action"),
+      response: document.querySelector("#planner-response")
+    };
+    const modeMessage = document.querySelector("#mode-message");
+    const runButton = document.querySelector("#run-demo");
+    const demoNote = document.querySelector("#demo-note");
+    let selectedCase = "execution";
+
+    function tags(targetId, values) {
+      const target = document.querySelector(targetId);
+      target.replaceChildren();
+      if (!values.length) {
+        const empty = document.createElement("span");
+        empty.className = "empty";
+        empty.textContent = "없음";
+        target.append(empty);
+        return;
+      }
+      values.forEach((value) => {
+        const tag = document.createElement("span");
+        tag.className = "tag";
+        tag.textContent = value;
+        target.append(tag);
+      });
+    }
+
+    function renderDecision(decision) {
+      const action = document.querySelector("#decision-action");
+      action.textContent = decision.action.toUpperCase();
+      action.className = `decision-action ${decision.action}`;
+      const review = document.querySelector("#review-required");
+      review.className = "";
+      review.textContent = decision.review_required ? "필요 — 사람이 승인해야 합니다." : "불필요 — read-only 요약입니다.";
+      tags("#guardrail-hits", decision.guardrail_hits || []);
+      tags("#tool-calls", decision.tool_calls || []);
+      const response = document.querySelector("#decision-response");
+      response.className = "response";
+      response.textContent = decision.response;
+    }
+
+    function selectCase(name) {
+      selectedCase = name;
+      const current = cases[name];
+      fields.prompt.value = current.payload.prompt;
+      fields.action.value = current.payload.planner_action;
+      fields.response.value = current.payload.planner_response;
+      document.querySelectorAll(".preset").forEach((button) => {
+        button.classList.toggle("active", button.dataset.case === name);
+      });
+      if (!liveApi) renderDecision(current.recorded);
+    }
+
+    async function runDemo() {
+      const current = cases[selectedCase];
+      if (!liveApi) {
+        renderDecision(current.recorded);
+        return;
+      }
+      runButton.disabled = true;
+      runButton.textContent = "Evidence와 guardrail 확인 중…";
+      try {
+        const response = await fetch("/v1/decisions", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            task_id: current.payload.task_id,
+            prompt: fields.prompt.value,
+            planner_action: fields.action.value,
+            planner_response: fields.response.value
+          })
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json();
+        renderDecision(payload.decision);
+      } catch (error) {
+        renderDecision({
+          action: "error",
+          review_required: true,
+          guardrail_hits: ["demo_request_failed"],
+          tool_calls: [],
+          response: `데모 요청에 실패했습니다: ${error.message}`
+        });
+      } finally {
+        runButton.disabled = false;
+        runButton.textContent = "실제 guardrail 실행";
+      }
+    }
+
+    document.querySelectorAll(".preset").forEach((button) => {
+      button.addEventListener("click", () => selectCase(button.dataset.case));
+    });
+    runButton.addEventListener("click", runDemo);
+
+    if (liveApi) {
+      modeMessage.innerHTML = "<strong>Live local demo</strong> — 이 화면은 현재 실행 중인 Python API의 <code>/v1/decisions</code>를 직접 호출합니다. 세 입력값을 바꿔서 실행할 수 있습니다.";
+      demoNote.textContent = "Fallback fixture를 사용하므로 별도 API key 없이 동작합니다. 결과는 실제 Python guardrail 응답입니다.";
+    } else {
+      modeMessage.innerHTML = "<strong>GitHub Pages · recorded replay</strong> — 실제 코드로 생성한 대표 결과를 브라우저에서 재생합니다. 임의 입력을 시험하려면 repository를 clone하고 local demo를 실행하세요.";
+      runButton.textContent = "기록된 결과 다시 보기";
+      Object.values(fields).forEach((field) => field.readOnly = true);
+      demoNote.textContent = "Hosted 화면은 live model/API가 아닌 public-safe recorded replay입니다. 실제 API 경로는 local demo에서 확인할 수 있습니다.";
+    }
+    selectCase("execution");
+  </script>
+</body>
+</html>

@@ -346,6 +346,9 @@ def build_quality_evidence(output_root: Path, summary: dict[str, Any] | None = N
         "planner_replay_claim_boundary": planner_claim_boundary,
         "artifact_contract": all(path.is_file() and path.stat().st_size > 0 for path in required_artifacts),
         "presentation_contract": (PROJECT_ROOT / "README.md").is_file(),
+        "interactive_demo_contract": (
+            PROJECT_ROOT / "docs" / "demo" / "index.html"
+        ).is_file(),
         "fresh_passing_junit": _passing_junit(reports / "pytest.xml"),
     }
     evidence = {
@@ -376,7 +379,7 @@ def write_quality_scores(output_root: Path, summary: dict[str, Any] | None = Non
         ("interpretation, limitations, and decision usefulness", 95.2, "review queue converts model, incident, and impact-card output into operating workflow"),
         ("code quality, structure, maintainability, and automation", 95.0, "domain adapters, tools, guardrails, traces, reports, and claim-state audit remain modular after impact expansion"),
         ("portfolio presentation, README, figures, and final report", 95.0, "README and reports state impact guardrails, holdout results, validation boundaries, and public-claim state"),
-        ("UI, visibility, readability, and mobile scanability", 94.9, "static trace dashboard has metric, guardrail, holdout, prepublish, queue, and impact evidence tables"),
+        ("UI, visibility, readability, and mobile scanability", 94.9, "responsive interactive demo exposes before/after decisions while the static trace dashboard preserves detailed evidence tables"),
         ("doctoral-level originality, depth, and technical ambition", 94.9, "cross-domain guarded DecisionOps pattern links operations ML, public incident data, impact-card validation, provider-neutral planner replay, holdout eval, and release gates"),
     ]
     with path.open("w", newline="", encoding="utf-8") as f:
