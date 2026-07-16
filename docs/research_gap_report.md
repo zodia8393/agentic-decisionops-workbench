@@ -10,7 +10,7 @@
 | trace/eval report | pass | static report + prepublish audit + impact guardrail; Stage 3 Control Tower가 interactive review UI 제공 | trace-to-dashboard deep link는 후속 |
 | uncertainty guardrail | pass | station, incident, impact-card heuristic rule 기반 | calibration-based threshold 추가 |
 | privacy gate | pass | source 기준 | release artifact scan 자동화 유지 |
-| deployable product | pass | Stage 2 자체는 CLI/report/queue이고 Stage 3 Control Tower가 API/Docker로 연결 | hosted demo hardening |
+| deployable product | pass | Stage 2는 FastAPI `/demo`와 GitHub Pages recorded replay를 제공하고 Stage 3 Control Tower가 reviewer product를 담당 | live hosted API는 인증·운영 비용 결정 후 별도 hardening |
 | prepublish audit | pass | unique prompt, holdout, real/open incident source 통과 | registry packaging 여부 결정 |
 | quality floor >= 96.0 | pass | fresh passing JUnit, main/holdout·impact guardrail, prepublish, artifact·presentation 계약이 모두 참일 때 min 96.0 | 근거 누락 시 94.9로 fallback하는 회귀 테스트 유지 |
 

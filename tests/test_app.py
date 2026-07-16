@@ -1,4 +1,6 @@
+import json
 from pathlib import Path
+import re
 import sys
 
 from fastapi.testclient import TestClient
@@ -10,6 +12,45 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from agentic_decisionops_workbench.app import create_app
+
+
+def test_demo_page_explains_and_calls_guarded_api(tmp_path):
+    app = create_app(
+        output_root=tmp_path,
+        bike_share_root=tmp_path / "missing-bike",
+        control_tower_root=tmp_path / "missing-tower",
+    )
+    client = TestClient(app)
+
+    response = client.get("/demo")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert "AI가 위험한 행동을 추천해도" in response.text
+    assert 'fetch("/v1/decisions"' in response.text
+    assert "READ-ONLY TOOLS" in response.text
+
+    match = re.search(
+        r'<script type="application/json" id="demo-cases">(.*?)</script>',
+        response.text,
+        re.DOTALL,
+    )
+    assert match is not None
+    cases = json.loads(match.group(1))
+    for case in cases.values():
+        decision_response = client.post("/v1/decisions", json=case["payload"])
+        assert decision_response.status_code == 200
+        decision = decision_response.json()["decision"]
+        assert {
+            key: decision[key]
+            for key in [
+                "action",
+                "review_required",
+                "guardrail_hits",
+                "tool_calls",
+                "response",
+            ]
+        } == case["recorded"]
 
 
 def test_api_health_exposes_planner_ready_boundary(tmp_path):

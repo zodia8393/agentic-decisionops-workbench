@@ -31,6 +31,16 @@ python3 ../scripts/validate_weekend_project.py --project "$PWD" --stage saturday
 python3 ../scripts/validate_weekend_project.py --project "$PWD" --stage sunday --ratchet-mode floor
 ```
 
+Interactive local demo는 다음으로 확인한다.
+
+```bash
+python3 -m pip install -r requirements-demo.txt
+scripts/serve_api.sh
+# http://127.0.0.1:8092/demo
+```
+
+GitHub Pages 화면은 `docs/demo/index.html`의 recorded replay이고, local `/demo`는 실제 `/v1/decisions` API를 호출한다.
+
 Sunday floor validator는 현재 active floor 보존 gate입니다. `strict` mode는 기존 floor를 초과해 portfolio 전체 ratchet을 올릴 때만 사용합니다. `reports/quality_evidence.json`의 JUnit·main/holdout·impact guardrail·prepublish·artifact checks가 모두 참이 아니면 score는 기존 94.9~95.4 범위로 복귀합니다.
 
 ## 산출물
