@@ -289,6 +289,38 @@ def test_quality_scores_meet_active_floor(tmp_path):
     assert float(presentation["score"]) >= 94.9
 
 
+def test_quality_scores_reach_floor_only_with_complete_evidence(tmp_path):
+    control_tower_root = tmp_path / "ready-control-tower"
+    write_ready_impact_artifacts(control_tower_root)
+    summary = run_all(
+        output_root=tmp_path,
+        bike_share_root=tmp_path / "missing-bike",
+        control_tower_root=control_tower_root,
+    )
+    (tmp_path / "reports" / "pytest.xml").write_text(
+        '<testsuite tests="19" failures="0" errors="0" />\n',
+        encoding="utf-8",
+    )
+
+    verified = write_quality_scores(tmp_path, summary)
+    rows = list(csv.DictReader(verified.open(newline="", encoding="utf-8")))
+    evidence = json.loads(
+        (tmp_path / "reports" / "quality_evidence.json").read_text(encoding="utf-8")
+    )
+
+    assert min(float(row["score"]) for row in rows) == 96.0
+    assert evidence["all_required_evidence"] is True
+
+    (tmp_path / "reports" / "pytest.xml").write_text(
+        '<testsuite tests="19" failures="1" errors="0" />\n',
+        encoding="utf-8",
+    )
+    unverified = write_quality_scores(tmp_path, summary)
+    rows = list(csv.DictReader(unverified.open(newline="", encoding="utf-8")))
+
+    assert min(float(row["score"]) for row in rows) == 94.9
+
+
 def test_guarded_agent_passes_holdout_prompts(tmp_path):
     bike = BikeShareArtifactAdapter(tmp_path / "missing").load()
     incidents = TrafficIncidentAdapter().load()
