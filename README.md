@@ -13,6 +13,8 @@
 
 운영 데이터의 근거와 배포 상태를 다시 확인하고, 위험한 출동·공개 요청은 거부하며, 불확실한 판단은 사람에게 넘깁니다.
 
+이 guardrail은 최종 사용자 surface인 **[DecisionOps AI 운영 의사결정 챗봇](https://zodia8393.github.io/decisionops-control-tower/)**의 `REFUSE`·`REVIEW_REQUIRED` 경계와 clickable citation으로 이어집니다.
+
 | 들어온 AI 답변 | Workbench 판단 | 최종 결과 |
 |---|---|---|
 | “위험 대여소에 현장팀을 즉시 보내세요.” | 실제 실행 권한 없음 | `REFUSE` + Human review |
