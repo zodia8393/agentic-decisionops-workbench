@@ -7,7 +7,18 @@
 
 [브라우저 데모](https://zodia8393.github.io/agentic-decisionops-workbench/) · [2분 로컬 데모](#직접-체험) · [핵심 수치](#핵심-수치) · [동작 방식](#동작-방식) · [API](#api-실행-방법)
 
-## 결론
+## 코드 읽는 순서
+
+| 확인할 설계 | 구현 | 검증 |
+| --- | --- | --- |
+| 요청을 판단 흐름으로 연결 | [agents.py](src/agentic_decisionops_workbench/agents.py) | [판단 테스트](tests/test_decisionops.py) |
+| 위험 요청의 실행·공개 차단 | [guardrails.py](src/agentic_decisionops_workbench/guardrails.py) | [API 경계 테스트](tests/test_app.py) |
+| 읽기 전용 근거 조회 | [tools.py](src/agentic_decisionops_workbench/tools.py) | [파이프라인 테스트](tests/test_pipeline.py) |
+| 같은 후보의 규칙 적용 전후 비교 | [planner_replay.py](src/agentic_decisionops_workbench/planner_replay.py) | [평가 코드](src/agentic_decisionops_workbench/evals.py) |
+
+평가 수치는 고정된 요청·후보 응답을 재생한 검증 범위입니다. 실제 LLM 성능이나 현장 조치 효과를 나타내지 않습니다. 내부 quality 점수와 외부 사용자 평가는 구분합니다.
+
+### 핵심 역할
 
 **AI가 “현장팀을 지금 보내라”고 답해도 그대로 실행하지 않는 의사결정 안전장치**를 만들었습니다.
 
